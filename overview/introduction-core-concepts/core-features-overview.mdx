@@ -1,0 +1,166 @@
+---
+title: "Core Features at a Glance"
+description: "A succinct summary of main features: seamless SQL Server support, Azure AD authentication, compatibility with the go-mssqldb driver, and how these features enable data-driven Go applications. Highlights the quickstart convenience and secure authentication options."
+---
+
+# Core Features at a Glance
+
+Unlock the full potential of Go applications with the GORM SQL Server Driver. This powerful dialect integrates seamlessly with Microsoft SQL Server, combining robust database features and secure authentication for fast, secure, and reliable data-driven development.
+
+---
+
+## Why This Matters
+
+If you're building Go applications that rely on SQL Server, you want a driver that fits naturally into your development flow. The GORM SQL Server Driver lets you write clear, idiomatic Go code while empowering you with SQL Server's full capabilities — from efficient queries and schema management to secure Azure AD authentication. This page provides a snapshot of those core capabilities.
+
+---
+
+## Main Features at a Glance
+
+- **Seamless SQL Server Integration**
+  - Enables full GORM compatibility with Microsoft SQL Server using the trusted go-mssqldb driver.
+  - Supports SQL Server-specific SQL constructs such as `OUTPUT` clauses and transaction savepoints.
+
+- **Azure Active Directory Authentication Support**
+  - Securely connect using Azure AD tokens for enterprise-grade authorization.
+  - Leverages the `azuread` driver within the same driver configuration for zero disruption.
+
+- **Advanced Schema and Migration Management**
+  - Automatic handling of tables, indexes, and column comments backed by SQL Server's system views.
+  - Supports table renaming, column alterations, and sophisticated index management.
+
+- **Error Translation for SQL Server-specific Codes**
+  - Converts common SQL Server error codes (e.g., duplicated keys, foreign key violations) into GORM-native errors.
+  - Makes error handling intuitive and consistent across databases.
+
+- **Optimized Query Building**
+  - Custom clause builders for SQL Server syntax, including paging with `OFFSET` / `FETCH NEXT`, and data modification channels.
+  - Supports native SQL Server functionality while maintaining GORM’s expressive query API.
+
+- **Quickstart Convenience**
+  - Easy `Open` and `New` dialector methods allow instant connection setup.
+  - Minimal configuration required to get started, with the option for advanced custom connection pooling.
+
+---
+
+## How These Features Benefit You
+
+### Achieve Secure and Reliable SQL Server Integration in Go
+Leveraging the official go-mssqldb driver under the hood guarantees compatibility and reliability in MSSQL connectivity. Using GORM’s idiomatic Go API, you gain access to powerful schema migrations, fluent query building, and advanced transaction support, while targeting SQL Server’s specific capabilities.
+
+### Simplify Enterprise Authentication
+With Azure Active Directory support baked in, your applications authenticate effortlessly against Azure SQL databases using industry-standard protocols. This guards data access behind your organization’s identity management system without additional glue code or manual token management.
+
+### Streamline Database Migrations and Schema Evolution
+The migrator built into the driver taps directly into SQL Server’s system tables to detect schema changes, manage indexes, and preserve column comments. This lets you confidently evolve your database alongside your app while avoiding migration errors and manual step tracking.
+
+### Deliver Robust, Production-Ready Error Handling
+By translating SQL Server's native error codes into GORM errors, you get clearer, more actionable error messages. This aids in debugging and ensures your application logic can gracefully respond to common database conflicts like unique constraint violations.
+
+---
+
+## Real-World User Scenarios
+
+- **Modern SaaS App Using Azure SQL**
+  Connects securely through Azure AD authentication using the driver’s built-in support, ensuring that only authorized users access multi-tenant data.
+
+- **Enterprise Application with Complex Schema Requirements**
+  Uses the migration support for managing schema changes, including column comments and indexes, directly within Go deployment pipelines.
+
+- **High-Volume Data Processing Service**
+  Leverages optimized SQL Server paging syntax (`OFFSET`/`FETCH NEXT`) and bulk INSERTs with the `MERGE` clause to maintain high throughput and data integrity.
+
+---
+
+## Getting Started Preview
+
+Begin by importing the driver and opening a connection with a SQL Server DSN:
+
+```go
+import (
+  "gorm.io/driver/sqlserver"
+  "gorm.io/gorm"
+)
+
+dsn := "sqlserver://gorm:password@localhost:9930?database=gorm"
+db, err := gorm.Open(sqlserver.Open(dsn), &gorm.Config{})
+if err != nil {
+  panic("failed to connect database")
+}
+```
+
+For Azure AD authentication, use the specialized dialector configuration:
+
+```go
+import (
+  "github.com/microsoft/go-mssqldb/azuread"
+  "gorm.io/driver/sqlserver"
+  "gorm.io/gorm"
+)
+
+dsn := "sqlserver://gorm:password@localhost:9930?database=gorm"
+dialector := &sqlserver.Dialector{Config: &sqlserver.Config{DSN: dsn, DriverName: azuread.DriverName}}
+db, err := gorm.Open(dialector, &gorm.Config{})
+```
+
+From here, all native GORM patterns and features apply, with SQL Server specific optimizations seamlessly handled.
+
+---
+
+## Tips & Best Practices
+
+- Always specify explicit schema names in your models if your database uses multiple schemas to avoid ambiguity.
+- Use the migrator’s capabilities to keep comments and indexes updated during schema changes—this preserves database documentation.
+- Take full advantage of the driver’s error translation to catch unique constraint violations and foreign key errors early and provide user-friendly messages.
+- Consider Azure AD authentication if you deploy on Azure cloud to align with enterprise security policies.
+
+---
+
+## Summary Diagram of Core Integration
+
+```mermaid
+flowchart TD
+  App["Go Application with GORM"] -->|Open Connection| Driver["GORM SQL Server Driver"]
+  Driver -->|Uses| MSSQLDriver["go-mssqldb Driver"]
+  MSSQLDriver -->|Connects to| SQLServer["Microsoft SQL Server"]
+  SQLServer -->|Azure AD Auth| AzureAD["Azure Active Directory"]
+  Driver -->|Handles| Migration["Schema & Migrations"]
+  Driver -->|Translates| Errors["SQL Server Errors"]
+  Driver -->|Builds| Queries["Optimized SQL Queries"]
+
+  subgraph Authentication
+    AzureAD
+  end
+
+  subgraph Database
+    SQLServer
+  end
+
+  subgraph Driver Internal
+    MSSQLDriver
+    Migration
+    Errors
+    Queries
+  end
+```
+
+---
+
+Harness the GORM SQL Server Driver today to build fast, secure, and enterprise-ready Go applications with Microsoft SQL Server.
+
+---
+
+For detailed configuration, schema migration workflows, and authentication setups, explore related documentation sections.
+
+
+---
+
+# Related Documentation
+
+- [Introduction and Value Proposition](/overview/introduction-core-concepts/product-intro-value)
+- [Managing Schema Migrations](/guides/database-operations/schema-migrations)
+- [Connecting with Azure AD Authentication](/guides/getting-started/azure-ad-auth)
+- [Error Translation and Handling](/api-reference/error-handling/error-translation)
+
+---
+
