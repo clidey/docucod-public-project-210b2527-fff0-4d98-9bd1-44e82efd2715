@@ -1,0 +1,112 @@
+{
+  "background": {
+    "decoration": "gradient"
+  },
+  "colors": {
+    "dark": "#1E3A8A",
+    "light": "#60A5FA",
+    "primary": "#60A5FA"
+  },
+  "favicon": "/favicon.svg",
+  "fonts": {
+    "family": "Montserrat",
+    "format": "woff2",
+    "source": "https://fonts.gstatic.com/s/googlesansflex/v5/t5sJIQcYNIWbFgDgAAzZ34auoVyXkJCOvp3SFWJbN5hF8Ju1x6sKCyp0l9sI40swNJwGpVd4AZzz0v6lJ4qFXNZhGjLvDSkV4USKMo6qQzwliVdHAy9jxTDHg_ugnAakpwGc-cxgUqDCIUI.woff2"
+  },
+  "icons": {
+    "library": "fontawesome"
+  },
+  "logo": {
+    "dark": "./logo/logo.svg",
+    "light": "./logo/logo.svg"
+  },
+  "name": "GORM SQL Server Driver",
+  "navigation": {
+    "tabs": [
+      {
+        "groups": [
+          {
+            "group": "Introduction \u0026 Core Concepts",
+            "pages": [
+              "overview/introduction-core-concepts/product-intro-value",
+              "overview/introduction-core-concepts/core-features-overview",
+              "overview/introduction-core-concepts/key-concepts-terminology"
+            ]
+          },
+          {
+            "group": "System Architecture \u0026 Use Cases",
+            "pages": [
+              "overview/architecture-use-cases/architecture-overview",
+              "overview/architecture-use-cases/primary-use-cases-audience",
+              "overview/architecture-use-cases/feature-quickstart"
+            ]
+          }
+        ],
+        "tab": "Overview"
+      },
+      {
+        "groups": [
+          {
+            "group": "Setup and Installation",
+            "pages": [
+              "getting-started/setup-and-installation/prerequisites-and-requirements",
+              "getting-started/setup-and-installation/installation-instructions",
+              "getting-started/setup-and-installation/configuration-and-first-connection"
+            ]
+          },
+          {
+            "group": "Validation and Troubleshooting",
+            "pages": [
+              "getting-started/validation-and-troubleshooting/quick-validation",
+              "getting-started/validation-and-troubleshooting/troubleshooting-common-issues"
+            ]
+          }
+        ],
+        "tab": "Getting Started"
+      },
+      {
+        "groups": [
+          {
+            "group": "Getting Started",
+            "pages": [
+              "guides/getting-started/basic-connection",
+              "guides/getting-started/azure-ad-auth"
+            ]
+          },
+          {
+            "group": "Database Operations",
+            "pages": [
+              "guides/database-operations/schema-migrations",
+              "guides/database-operations/updating-records"
+            ]
+          }
+        ],
+        "tab": "Guides"
+      },
+      {
+        "groups": [
+          {
+            "group": "Core API",
+            "pages": [
+              "api-reference/core-api/dialector",
+              "api-reference/core-api/dsn-configuration",
+              "api-reference/core-api/db-operations"
+            ]
+          },
+          {
+            "group": "Error Handling \u0026 Responses",
+            "pages": [
+              "api-reference/error-handling/error-translation",
+              "api-reference/error-handling/status-codes"
+            ]
+          }
+        ],
+        "tab": "API Reference"
+      }
+    ]
+  },
+  "styling": {
+    "codeblocks": "dark",
+    "eyebrows": "breadcrumbs"
+  }
+}
