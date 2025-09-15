@@ -1,0 +1,171 @@
+---
+title: "Status Codes & Common Errors"
+description: "Reference for common status codes and error patterns encountered when connecting to or operating on SQL Server via GORM, including authentication and migration issues. Includes example error responses and troubleshooting advice."
+---
+
+# Status Codes & Common Errors
+
+This reference serves as your essential guide to the common status codes and error patterns you may encounter when connecting to or performing operations on Microsoft SQL Server using the GORM SQL Server Driver. It covers authentication hurdles, migration pitfalls, data conflicts, and troubleshooting strategies with clear, actionable examples to help you quickly diagnose and resolve issues during your development journey.
+
+---
+
+## Understanding Error Handling with the GORM SQL Server Driver
+
+The GORM SQL Server Driver integrates tightly with the native Microsoft SQL Server error reporting and enriches it by translating key error codes into familiar, standardized GORM error types. This translation simplifies error handling logic within your application while keeping you fully informed about SQL Server-specific issues.
+
+### Common SQL Server Error Codes Mapped by GORM
+
+| SQL Server Error Number | Description                       | Mapped GORM Error          |
+|------------------------|---------------------------------|---------------------------|
+| 2627                   | Violation of primary key or unique constraint (duplicate key error) | `gorm.ErrDuplicatedKey`    |
+| 2601                   | Cannot insert duplicate key row in object with unique index  | `gorm.ErrDuplicatedKey`    |
+| 547                    | Foreign key constraint violation | `gorm.ErrForeignKeyViolated` |
+
+Errors outside these codes are passed transparently, so your application receives the full original error for any other SQL Server issue.
+
+<Info>
+The complete list of Microsoft SQL Server error codes is documented at [Microsoft Docs](https://learn.microsoft.com/en-us/sql/relational-databases/errors-events/database-engine-events-and-errors?view=sql-server-ver16).
+</Info>
+
+---
+
+## Typical Error Scenarios & Example Responses
+
+Below are common scenarios where these errors arise, along with example error responses and guidance.
+
+### 1. Duplicate Key Error on Insert
+
+This occurs when attempting to insert a record with a primary key or unique column value that already exists.
+
+**Example error message:**
+
+```json
+{
+  "Number": 2627,
+  "Message": "Violation of UNIQUE KEY constraint 'UQ_user_email'. Cannot insert duplicate key in object 'dbo.users'."
+}
+```
+
+**Handling Guidance:**
+- Use `gorm.ErrDuplicatedKey` to detect and handle gracefully.
+- Consider implementing upsert strategies or conflict resolution where appropriate.
+
+### 2. Foreign Key Violation on Delete or Update
+
+Triggered when attempting to delete or update a parent record that has dependent child rows maintained by foreign key constraints.
+
+**Example error message:**
+
+```json
+{
+  "Number": 547,
+  "Message": "The DELETE statement conflicted with the REFERENCE constraint 'FK_orders_user'."
+}
+```
+
+**Handling Guidance:**
+- Use `gorm.ErrForeignKeyViolated` to detect referential integrity issues.
+- Ensure dependent records are removed or updated before the parent record.
+
+### 3. Authentication Issues
+
+Errors related to connectivity often stem from incorrect credentials, driver misconfiguration, or unsupported authentication modes.
+
+**Common symptoms:** failure during `db, err := gorm.Open(sqlserver.Open(dsn), &gorm.Config{})` with messages about login failures or driver errors.
+
+**Troubleshooting tips:**
+- Verify DSN syntax and credential correctness.
+- If using Azure AD Authentication, ensure the dialector's `DriverName` is set accordingly.
+- Check network connectivity and SQL Server instance availability.
+
+---
+
+## Best Practices for Preventing and Handling Errors
+
+- **Always check for returned errors immediately after database calls.** Use the translated errors when applicable.
+
+- **Handle duplicate keys proactively:** Use upsert (`ON CONFLICT`) facilities in SQL Server or GORM to reduce failed insertions.
+
+- **Respect foreign key constraints:** Model relationships carefully in your schema and migrate data accordingly to avoid integrity violations.
+
+- **Test schema migrations thoroughly:** Use the migrator interface and check for errors such as missing tables, columns, or index conflicts.
+
+- **Configure authentication correctly:** Follow guides for standard or Azure AD authentication to avoid connection failures.
+
+---
+
+## Sample Code: Detecting and Handling Common Errors
+
+```go
+import (
+	"fmt"
+	"gorm.io/driver/sqlserver"
+	"gorm.io/gorm"
+	"gorm.io/gorm/errors" // for gorm.ErrDuplicatedKey
+	"gorm.io/gorm/logger"
+)
+
+func insertUser(db *gorm.DB, user User) error {
+	err := db.Create(&user).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrDuplicatedKey) {
+			return fmt.Errorf("duplicate entry: %w", err)
+		}
+		if errors.Is(err, gorm.ErrForeignKeyViolated) {
+			return fmt.Errorf("foreign key violation: %w", err)
+		}
+		return err
+	}
+	return nil
+}
+
+// Usage
+func main() {
+	dsn := "sqlserver://gorm:password@localhost:1433?database=appdb"
+	db, err := gorm.Open(sqlserver.Open(dsn), &gorm.Config{
+		Logger: logger.Default.LogMode(logger.Info),
+	})
+	if err != nil {
+		panic(err)
+	}
+
+	user := User{ID: 1, Email: "test@example.com"}
+	if err := insertUser(db, user); err != nil {
+		fmt.Println("Error inserting user:", err)
+	}
+}
+```
+
+---
+
+## Troubleshooting Checklist
+
+Use the following steps when encountering errors:
+
+1. **Review the exact error number and message.** Check if it matches common known codes (2627, 2601, 547).
+
+2. **Use the driver’s error translation layer.** It will map errors to GORM ones for easier handling.
+
+3. **Verify your database schema matches your GORM models.** Differences can cause unexpected constraint errors.
+
+4. **Check your migration history.** Incomplete or failed migrations often cause issues with missing fields or constraints.
+
+5. **Validate connection strings and authentication mode.** Especially when using Azure AD, confirm your dialector setup.
+
+6. **Enable detailed logging during development.** It helps reveal the SQL statements and underlying causes.
+
+7. **Consult the official Microsoft SQL Server error list** for less common errors.
+
+---
+
+## Additional Resources
+
+- [Error Translation Logic](/api-reference/error-handling/error-translation): Understand more about how error codes map to GORM errors.
+- [Configuration & First Connection](/getting-started/setup-and-installation/configuration-and-first-connection): Resolve connection/authentication issues.
+- [Managing Schema Migrations](/guides/database-operations/schema-migrations): Avoid migration-related errors.
+- [Troubleshooting Common Issues](/getting-started/validation-and-troubleshooting/troubleshooting-common-issues): Broader help on common setup problems.
+
+
+---
+
+By mastering the common status codes and understanding the driver's built-in error translation, you empower your applications to handle SQL Server interactions more resiliently and with meaningful responses. Always leverage these insights to deliver robust, fault-tolerant database operations via GORM.
