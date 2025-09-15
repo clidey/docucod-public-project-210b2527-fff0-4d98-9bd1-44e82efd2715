@@ -1,0 +1,262 @@
+---
+title: "Quick Validation Steps"
+description: "Learn how to verify your GORM SQL Server Driver setup was successful and that your app can access your database. Includes tips for essential queries and health checks to confirm everything works as expected."
+---
+
+# Quick Validation Steps
+
+Verify that your setup of the GORM SQL Server Driver is operational and your Go application can successfully communicate with SQL Server. This guide walks you through essential queries, checks, and practical tips to confirm that your integration is working as expected.
+
+---
+
+## 1. Confirm Database Connection
+
+Before running queries or migrations, ensure your application is connected to the target SQL Server database.
+
+### Step:
+
+1. Open or initialize your GORM DB instance using the SQL Server DSN:
+
+```go
+import (
+  "gorm.io/driver/sqlserver"
+  "gorm.io/gorm"
+)
+
+dsn := "sqlserver://gorm:LoremIpsum86@localhost:9930?database=gorm"
+db, err := gorm.Open(sqlserver.Open(dsn), &gorm.Config{})
+if err != nil {
+  log.Fatalf("failed to connect to database: %v", err)
+}
+```
+
+2. Verify the connection by pinging the database:
+
+```go
+sqlDB, err := db.DB()
+if err != nil {
+  log.Fatalf("failed to get sql.DB from gorm.DB: %v", err)
+}
+
+err = sqlDB.Ping()
+if err != nil {
+  log.Fatalf("database ping failed: %v", err)
+}
+
+log.Println("Database connection successful.")
+```
+
+
+<Check>
+Always ensure your environment variables or DSN strings are correctly set, including credentials, ports, and database names.
+</Check>
+
+---
+
+## 2. Check for Existing Tables
+
+Validating that your schema exists confirms that migrations or initializations have succeeded.
+
+### Execute:
+
+```go
+var tables []string
+err = db.Migrator().GetTables(&tables)
+if err != nil {
+  log.Fatalf("failed to retrieve tables: %v", err)
+}
+
+if len(tables) == 0 {
+  log.Println("No tables found in the database.")
+} else {
+  log.Printf("Found tables: %v", tables)
+}
+```
+
+Expected result is a list of table names in your current database. If none appear, verify migration steps or schema setup.
+
+<Info>
+You can specify your database schema in GORM if you are using schemas other than the default one.
+</Info>
+
+---
+
+## 3. Validate Table Existence for Specific Models
+
+Use the `HasTable` method to confirm individual table existence.
+
+### Example:
+
+```go
+exists := db.Migrator().HasTable("test_table_field_comment")
+if exists {
+  log.Println("Table 'test_table_field_comment' exists.")
+} else {
+  log.Println("Table 'test_table_field_comment' NOT found.")
+}
+```
+
+This form is useful during migration or conditional logic.
+
+---
+
+## 4. Inspect Column Details and Comments
+
+Verify that columns and their comments were created or updated correctly.
+
+### Fetch column types and comments:
+
+```go
+columnTypes, err := db.Migrator().ColumnTypes("test_table_field_comment")
+if err != nil {
+  log.Fatalf("failed to get column types: %v", err)
+}
+
+for _, column := range columnTypes {
+  name := column.Name()
+  comment := ""
+  if c, ok := column.(interface{ Comment() string }); ok {
+    comment = c.Comment()
+  }
+  log.Printf("Column: %s, Comment: %s", name, comment)
+}
+```
+
+<Note>
+Column comments are supported and handled specifically in the SQL Server driver through extended properties.
+</Note>
+
+---
+
+## 5. Verify Indexes
+
+Check if expected indexes were properly created.
+
+### Use `GetIndexes` API:
+
+```go
+indexes, err := db.Migrator().(sqlserver.Migrator).GetIndexes("testtable")
+if err != nil {
+  log.Fatalf("failed to get indexes: %v", err)
+}
+
+for _, idx := range indexes {
+  log.Printf("Index: %s, Columns: %v, Unique: %v, PrimaryKey: %v", idx.Name(), idx.Columns(), idx.Unique(), idx.PrimaryKey())
+}
+```
+
+This helps confirm any unique or primary constraints are in place.
+
+---
+
+## 6. Run a Simple Query to Validate Operational Read
+
+After confirming schema and indexes, test a basic query to ensure DB read operations work:
+
+```go
+var result int64
+err = db.Raw("SELECT COUNT(*) FROM test_table_field_comment").Scan(&result).Error
+if err != nil {
+  log.Fatalf("query failed: %v", err)
+} else {
+  log.Printf("Row count in test_table_field_comment: %d", result)
+}
+```
+
+Successful query execution confirms that the connection and schema access are functional.
+
+---
+
+## Troubleshooting Tips
+
+<AccordionGroup title="Common Validation Issues and Solutions">
+<Accordion title="Connection Ping Fails">
+- Check firewall and network access to SQL Server.
+- Confirm DSN credentials and format are correct.
+- Verify SQL Server allows remote connections.
+</Accordion>
+<Accordion title="No Tables Found after Migration">
+- Ensure `AutoMigrate` was successfully called.
+- Confirm correct database/schema in DSN and GORM config.
+- Review any errors during migration.
+</Accordion>
+<Accordion title="Index Verification Returns Empty">
+- Make sure indexes were defined correctly on structs.
+- Confirm migrations ran to create indexes.
+- Check for naming conflicts or reserved keywords.
+</Accordion>
+<Accordion title="Column Comments Not Saved">
+- SQL Server requires extended property permissions.
+- Use explicit `comment` tags in GORM struct fields.
+- Verify `sp_addextendedproperty` execution rights.
+</Accordion>
+</AccordionGroup>
+
+---
+
+## Summary
+
+By following these validation steps, you confirm that your GORM SQL Server Driver setup is correctly installed, configured, and operational with your database. These checks form an essential part of your initial project verification to avoid runtime surprises.
+
+For full migration workflows and advanced usage, refer to the guides on [Managing Schema Migrations](/guides/database-operations/schema-migrations) and [Azure AD Authentication Setup](/guides/getting-started/azure-ad-auth).
+
+---
+
+## Additional Resources
+
+- [Installation Instructions](/getting-started/setup-and-installation/installation-instructions)
+- [Configuration & First Connection](/getting-started/setup-and-installation/configuration-and-first-connection)
+- [Troubleshooting Common Issues](/getting-started/validation-and-troubleshooting/troubleshooting-common-issues)
+- [Error Translation in SQL Server Driver](/api-reference/error-handling/error-translation)
+
+
+---
+
+## Example Validation Workflow
+
+```go
+package main
+
+import (
+    "log"
+    "gorm.io/driver/sqlserver"
+    "gorm.io/gorm"
+)
+
+func main() {
+    dsn := "sqlserver://gorm:LoremIpsum86@localhost:9930?database=gorm"
+    db, err := gorm.Open(sqlserver.Open(dsn), &gorm.Config{})
+    if err != nil {
+        log.Fatalf("failed to connect database: %v", err)
+    }
+
+    sqlDB, err := db.DB()
+    if err != nil {
+        log.Fatalf("failed to get db instance: %v", err)
+    }
+
+    if err := sqlDB.Ping(); err != nil {
+        log.Fatalf("database unreachable: %v", err)
+    }
+    log.Println("Connected to database successfully")
+
+    tables, err := db.Migrator().GetTables()
+    if err != nil {
+        log.Fatalf("failed to retrieve tables: %v", err)
+    }
+    log.Printf("Available tables: %v", tables)
+
+    hasTable := db.Migrator().HasTable("test_table_field_comment")
+    log.Printf("Does 'test_table_field_comment' exist? %v", hasTable)
+
+    // Run a simple query count
+    var count int64
+    err = db.Raw("SELECT COUNT(*) FROM test_table_field_comment").Scan(&count).Error
+    if err != nil {
+        log.Fatalf("query failed: %v", err)
+    }
+    log.Printf("Row count in test_table_field_comment: %d", count)
+}
+```
+
+---
