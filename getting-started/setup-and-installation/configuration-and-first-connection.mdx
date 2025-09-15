@@ -1,0 +1,223 @@
+---
+title: "Configuration & First Connection"
+description: "Configure your application to connect to SQL Server using GORM. Learn how to structure your Data Source Name (DSN), set up authentication (including Azure AD), and make a reliable first connection in just a few lines of code."
+---
+
+# Configuration & First Connection
+
+Configure your Go application to connect seamlessly to Microsoft SQL Server using the GORM SQL Server Driver. This guide walks you through constructing your Data Source Name (DSN), setting up authentication options including Azure AD, and making a reliable initial connection with minimal code.
+
+---
+
+## 1. Understand the Data Source Name (DSN) Structure
+
+The DSN is the core connection string that tells the driver how to reach your SQL Server instance and authenticate your application.
+
+### DSN Format Example
+
+```txt
+sqlserver://username:password@host:port?database=yourdb
+```
+
+- **username**: your database username
+- **password**: the corresponding password
+- **host**: SQL Server host address (e.g., localhost or IP)
+- **port**: port number (default is usually 1433)
+- **database**: the database name you want to connect to
+
+### Practical Example
+
+```txt
+sqlserver://gorm:LoremIpsum86@localhost:9930?database=gorm
+```
+
+> This string connects to server at `localhost`, port `9930` using the user `gorm` with the password `LoremIpsum86`, targeting the `gorm` database.
+
+<Tip>
+Customize your DSN according to your server’s host, port, user credentials, and desired database.
+</Tip>
+
+---
+
+## 2. Set Up Authentication
+
+### Standard Authentication
+
+For most SQL Server setups, standard username/password authentication is used within the DSN as shown above.
+
+### Azure Active Directory (Azure AD) Authentication
+
+If your SQL Server uses Azure AD authentication, leverage the Azure AD compatible driver to authenticate securely.
+
+Here’s how to configure GORM to use Azure AD:
+
+```go
+import (
+  "github.com/microsoft/go-mssqldb/azuread"
+  "gorm.io/driver/sqlserver"
+  "gorm.io/gorm"
+)
+
+dsn := "sqlserver://gorm:LoremIpsum86@localhost:9930?database=gorm"
+dialector := &sqlserver.Dialector{
+  Config: &sqlserver.Config{
+    DSN: dsn,
+    DriverName: azuread.DriverName, // Use Azure AD driver
+  },
+}
+db, err := gorm.Open(dialector, &gorm.Config{})
+```
+
+<Note>
+Replace `dsn` with your actual connection string. Using the Azure AD driver enables token-based authentication managed transparently.
+</Note>
+
+---
+
+## 3. Establishing Your First Connection with GORM
+
+Follow these steps to initialize and verify your connection:
+
+<Steps>
+<Step title="Import Required Packages">
+Include the SQL Server dialect and GORM packages.
+
+```go
+import (
+  "gorm.io/driver/sqlserver"
+  "gorm.io/gorm"
+)
+```
+</Step>
+
+<Step title="Define Your DSN">
+Set your DSN string with your connection parameters.
+
+```go
+dsn := "sqlserver://gorm:LoremIpsum86@localhost:9930?database=gorm"
+```
+</Step>
+
+<Step title="Open the Database Connection">
+Use `gorm.Open` with the SQL Server dialect.
+
+```go
+db, err := gorm.Open(sqlserver.Open(dsn), &gorm.Config{})
+if err != nil {
+  panic("failed to connect database: " + err.Error())
+}
+```
+</Step>
+
+<Step title="Verify the Connection">
+Perform a simple operation to confirm the connection.
+
+```go
+// For example, ping the database (requires *sql.DB from *gorm.DB)
+sqlDB, err := db.DB()
+if err != nil {
+  panic(err)
+}
+if err := sqlDB.Ping(); err != nil {
+  panic("db ping failed: " + err.Error())
+}
+```
+Check for no errors and you’re ready to proceed.
+</Step>
+</Steps>
+
+<Tip>
+Always handle errors explicitly at this stage to catch issues early like typos in credentials or network problems.
+</Tip>
+
+---
+
+## 4. Configuration Options and Tips
+
+- **Custom Driver Name**: If you use a driver other than the default `sqlserver` (e.g., for Azure AD), specify it in the Dialector config.
+- **Environment Variables**: Store sensitive information (usernames, passwords) securely and construct DSNs dynamically in your app.
+- **Connection Pooling**: Further configure connection pooling by extracting the underlying `*sql.DB`.
+
+```go
+sqlDB, _ := db.DB()
+sqlDB.SetMaxOpenConns(10)
+sqlDB.SetMaxIdleConns(5)
+sqlDB.SetConnMaxLifetime(time.Hour)
+```
+
+- **Timeouts and Network Settings** can be appended as DSN query parameters if needed (consult the go-mssqldb docs).
+
+---
+
+## 5. Common Pitfalls & Troubleshooting
+
+<AccordionGroup title="Troubleshooting Connection Issues">
+<Accordion title="Invalid DSN or Missing Parameters">
+Verify the DSN format carefully: username, password, host, port, and database must be accurate.
+
+Errors such as `login failed` often point to credential problems.
+</Accordion>
+
+<Accordion title="Firewall or Network Connectivity Problems">
+Ensure SQL Server ports are open and accessible from your application host.
+
+Test connectivity with `telnet host port` or similar tools.
+</Accordion>
+
+<Accordion title="Azure AD Authentication Fails">
+Confirm you imported and use the Azure AD driver correctly.
+Review Azure AD permissions and token scopes.
+</Accordion>
+
+<Accordion title="Ping or Query Errors After Connection">
+Check the SQL Server status and permissions of your user in the target database.
+Logs in SQL Server Management Studio might provide more insights.
+</Accordion>
+</AccordionGroup>
+
+---
+
+## 6. Next Steps
+
+After successful connection:
+
+- Explore schema migrations with GORM to create or modify tables ([Managing Schema Migrations](/guides/database-operations/schema-migrations)).
+- Try basic CRUD operations using GORM's fluent API.
+- Set up Azure AD authentication if you require more secure access ([Connecting with Azure AD Authentication](/guides/getting-started/azure-ad-auth)).
+
+For reference on error handling, consult the [Error Translation](/api-reference/error-handling/error-translation) documentation.
+
+---
+
+## Reference Code Snippet
+
+```go
+package main
+
+import (
+  "fmt"
+  "gorm.io/driver/sqlserver"
+  "gorm.io/gorm"
+)
+
+func main() {
+  dsn := "sqlserver://gorm:LoremIpsum86@localhost:9930?database=gorm"
+  db, err := gorm.Open(sqlserver.Open(dsn), &gorm.Config{})
+  if err != nil {
+    panic("failed to connect database: " + err.Error())
+  }
+  
+  sqlDB, err := db.DB()
+  if err != nil {
+    panic(err)
+  }
+  
+  if err := sqlDB.Ping(); err != nil {
+    panic("db ping failed: " + err.Error())
+  }
+
+  fmt.Println("Connected to SQL Server successfully!")
+}
+```
+
+---
