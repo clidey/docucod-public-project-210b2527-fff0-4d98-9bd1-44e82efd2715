@@ -1,0 +1,193 @@
+---
+title: "Database Operations"
+description: "Overview of common database actions including creation, updating, and migrations when using the SQL Server driver. This page highlights how to utilize the create, update, and migrator features, mapping them to user workflows and SQL Server nuances."
+---
+
+# Database Operations with the GORM SQL Server Driver
+
+This guide walks you through the fundamental database operations available when using the GORM SQL Server Driver. From creating records, updating existing data, to managing and migrating schema changes, this page provides clear actionable insights on how to leverage the driver’s features aligned with Microsoft SQL Server’s behavior.
+
+---
+
+## 1. Overview of Database Operations
+
+When working with GORM and SQL Server, common database operations revolve around **creating**, **updating** records, and performing **migrations** to manage your schema evolution smoothly. Each operation is enhanced by SQL Server-specific optimizations and clauses supported by this driver.
+
+By following the workflows here, you will ensure your applications work efficiently with SQL Server’s nuances, like IDENTITY inserts, output clauses, and transactional integrity.
+
+---
+
+## 2. Creating Records
+
+Creating new records with the SQL Server driver has full support for SQL Server features including handling of auto-incrementing primary keys, conflict resolution, and outputting inserted values.
+
+### Key Features
+- Automatically handles **IDENTITY_INSERT** for tables with auto-increment primary keys when you provide explicit values.
+- Supports **MERGE** statements to handle `ON CONFLICT` clauses, allowing upsert-like behavior.
+- Uses the SQL Server **OUTPUT** clause to return inserted row data.
+
+### Typical Flow
+1. Start a create operation with `db.Create(&obj)`.
+2. The driver evaluates if an `ON CONFLICT` clause exists and if primary key columns are supplied.
+3. If conflict rules apply, a `MERGE` SQL command is generated to perform an upsert.
+4. During inserts requiring explicit IDENTITY values, `SET IDENTITY_INSERT` ON/OFF is toggled automatically.
+5. If output fields with default values are present, the driver appends an OUTPUT clause to return these fields after insertion.
+
+### Example Usage
+```go
+user := User{Name: "John Doe"}
+result := db.Create(&user)
+if result.Error != nil {
+  // handle error
+}
+fmt.Printf("Inserted user ID: %d", user.ID)
+```
+
+### Practical Tips
+- Ensure primary key fields are zero-valued if you expect SQL Server to auto-increment.
+- Use GORM’s `OnConflict` clause to define custom conflict resolution strategies.
+
+---
+
+## 3. Updating Records
+
+Updating data is streamlined with SQL Server’s native support and GORM’s update callbacks customized for this driver.
+
+### Highlights
+- Omits auto-increment primary key fields by default during updates to avoid conflicts.
+- Builds SQL Server-specific update queries including `RETURNING` clauses if necessary.
+
+### How It Works
+- When you call `db.Save(&obj)` or `db.Model(&obj).Updates(...)`, the driver prepares an update statement.
+- The driver automatically excludes auto-increment primary keys from the update fields.
+- Underlying update SQL is optimized with clauses such as `UPDATE ... SET ... FROM ... WHERE ...` tailored for SQL Server syntax.
+
+### Example
+```go
+user := User{ID: 1}
+
+// Update name only
+err := db.Model(&user).Update("Name", "Jane Doe").Error
+if err != nil {
+  // handle error
+}
+```
+
+### Best Practice
+- Avoid attempting to update auto-increment primary keys.
+- Use `Updates` when updating multiple fields for clarity.
+
+---
+
+## 4. Schema Migrations
+
+Managing database schema changes is essential for evolving your data models. The SQL Server driver integrates tightly with GORM's migrator interface, offering comprehensive migration capabilities adapted to SQL Server specifics.
+
+### Features
+- Create, alter, rename, drop tables and columns with proper handling of SQL Server's schema and catalog.
+- Add and manage column comments using Extended Properties (`MS_Description`).
+- Create, rename, and check for indexes and constraints efficiently.
+- Retrieve detailed column type information reflecting SQL Server data types accurately.
+
+### Workflow Breakdown
+1. **Creating Tables & Columns**
+   - Uses standard `CREATE TABLE` with extended properties to add comments.
+   - Supports namespaced schemas (e.g., `dbo.TableName`), handling default schemas.
+
+2. **Checking Existence**
+   - Provides methods to check if tables, columns, indexes, or constraints already exist.
+
+3. **Altering Columns**
+   - Modifies column types and nullability via `ALTER TABLE ... ALTER COLUMN ...` commands.
+
+4. **Dropping and Renaming**
+   - Supports safe drop operations that handle dependencies like foreign keys.
+   - Renames tables and indexes while respecting SQL Server syntax.
+
+5. **Indexing**
+   - Creates unique, primary key, and normal indexes with optional filters and classes.
+
+6. **Advanced Support**
+   - Retrieves column types including default values and identity information.
+   - Creates and alters views with `CREATE OR ALTER VIEW` support.
+
+### Example: Creating a Table with Comments
+```go
+type Product struct {
+  ID    int `gorm:"primaryKey"`
+  Name  string `gorm:"size:255;comment:Product name"`
+  Price float64 `gorm:"comment:Product price"`
+}
+
+err := db.AutoMigrate(&Product{})
+if err != nil {
+  // handle error
+}
+```
+
+After migration, comments are stored as Extended Properties retrievable via SQL Server management tools.
+
+### Common Commands
+```go
+// Check if a table exists
+exists := db.Migrator().HasTable(&Product{})
+
+// Add a column
+err := db.Migrator().AddColumn(&Product{}, "Description")
+
+// Rename a table
+err := db.Migrator().RenameTable("old_products", "products")
+
+// Create an index
+err := db.Migrator().CreateIndex(&Product{}, "idx_name")
+```
+
+### Practical Tips
+- Use fully qualified table names including schema to avoid ambiguity.
+- When updating field comments, the driver compares old and new comments and adjusts Extended Properties accordingly.
+- Cleanly drop dependent constraints before dropping tables.
+
+---
+
+## 5. Integrating Operations in User Workflows
+
+### Typical Application Lifecycle
+1. **Startup:** Connect to SQL Server via the SQL Server Dialector.
+2. **Schema Setup:** Use AutoMigrate or explicit migrator calls to ensure schema is current.
+3. **Data Creation:** Use `Create` calls with conflict resolution as needed.
+4. **Data Modification:** Apply `Updates` safely omitting identity keys.
+5. **Schema Evolution:** Add columns, rename tables, or migrate data using migrator methods.
+
+This sequence ensures robust, transaction-safe operations with visibility into successful inserts, updates, and migrations.
+
+---
+
+## 6. Troubleshooting Common Issues
+
+- **Insert Failures Due to Identity Fields:** 
+  - Verify that if you provide explicit primary key values for identity columns, the driver correctly enables `IDENTITY_INSERT`. 
+
+- **Conflict Clause Not Working:**
+  - Ensure primary keys are part of the insert values; otherwise, conflict handling falls back to simple insert.
+
+- **Migration Comments Not Updating:**
+  - The driver compares the existing Extended Property comment with new comments before applying changes. Empty string or special characters are handled carefully.
+
+- **Index Creation Errors:**
+  - Confirm index names and uniqueness classes exist in your schema model before calling migrator methods.
+
+- **Schema Names and Table Names:**
+  - Use fully qualified names when multiple schemas exist; otherwise, the default schema is applied.
+
+---
+
+## 7. Additional Resources
+
+- For connecting and configuring your SQL Server connection, see [Configuration & First Connection](/getting-started/setup-and-installation/configuration-and-first-connection).
+- For detailed schema migration workflows, consult the [Managing Schema Migrations Guide](/guides/database-operations/schema-migrations).
+- For secure authentication via Azure AD, review [Connecting with Azure AD Authentication](/guides/getting-started/azure-ad-auth).
+- For error interpretation during create and update operations, see [Error Translation](/api-reference/error-handling/error-translation).
+
+---
+
+By mastering these database operations and understanding the interplay between GORM's API surface and SQL Server's particulars, you will build resilient and scalable data-driven Go applications efficiently.
