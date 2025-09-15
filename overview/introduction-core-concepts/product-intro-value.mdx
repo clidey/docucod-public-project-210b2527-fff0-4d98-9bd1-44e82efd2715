@@ -1,0 +1,153 @@
+---
+title: "What is the GORM SQL Server Driver?"
+description: "An overview of the GORM SQL Server Driver, describing its role as an official GORM dialect for Microsoft SQL Server, the product’s value proposition—painless integration with SQL Server for Go applications—and what makes it essential for scalable, production-ready projects."
+---
+
+# What is the GORM SQL Server Driver?
+
+## Seamless Integration Between Go Applications and Microsoft SQL Server
+
+The GORM SQL Server Driver is the official dialect for integrating GORM—the popular Golang ORM framework—with Microsoft SQL Server databases. It enables Go developers to interact effortlessly with SQL Server systems using idiomatic, high-performance ORM methods.
+
+### Why This Driver Matters to You
+
+- **Painless Integration:** Connect Go applications to SQL Server without wrestling with low-level SQL syntax or connection quirks.
+- **Production-Ready:** Built to support scalable applications with features like migrations, advanced queries, and index management.
+- **Official Support:** Authored and maintained by the GORM team, ensuring compatibility and ongoing improvements.
+- **Rich Feature Set:** Manage schema, perform advanced CRUD operations, and handle database-specific nuances transparently.
+
+### Ideal For
+
+Go developers and teams building enterprise-grade applications that rely on Microsoft SQL Server for robust, scalable data storage.
+
+---
+
+## Understanding the GORM SQL Server Driver
+
+At its core, the driver acts as a specialized connector and translator between GORM’s abstraction layer and the unique SQL dialect and behaviors of Microsoft SQL Server. It extends the base GORM functionality with SQL Server specific implementations for schema migrations, query building, error handling, and transaction management.
+
+This means you don't have to switch between raw T-SQL and Go—your database tasks are expressed directly in Go structs and method calls, with the driver translating these into optimized SQL Server commands behind the scenes.
+
+### What It Enables
+
+- Automatic handling of SQL Server data types from Go types (e.g., mapping Go booleans to SQL Server `bit`).
+- Efficient migrations that respect SQL Server’s syntax and capabilities, including handling default values, indexing, and schema management.
+- Custom support for transaction behaviors and SQL clauses like `LIMIT`, `OFFSET`, and `OUTPUT` suited to SQL Server.
+- Translating SQL Server native errors into actionable GORM errors to simplify error handling.
+
+---
+
+## Key Features & Responsibilities
+
+### 1. Advanced Schema Management
+- Automates creation, modification, and deletion of tables and columns tailored for SQL Server.
+- Supports setting and updating extended properties like column comments directly, which many ORMs overlook.
+- Handles naming schemas and fully qualified table names, easing multi-schema environments.
+
+### 2. Native SQL Server Query Construction
+- Builds SQL queries that respect SQL Server’s specific syntax nuances such as the use of `OFFSET`/`FETCH` for limiting results.
+- Manages complex `MERGE` statements for efficient `ON CONFLICT` upserts.
+
+### 3. Robust Transaction Support
+- Implements savepoints and rollbacks in a way native to SQL Server.
+
+### 4. Detailed Error Translation
+- Interprets common SQL Server error codes (like unique key violations or foreign key constraints) into standardized GORM errors to simplify debugging.
+
+### 5. Flexible Configuration
+- Allows integration with alternative connection drivers, including Azure AD authentication.
+- Supports customization of default string sizes and connection pooling.
+
+---
+
+## Real-World Scenario
+
+Consider an application needing to store user data with automatic migrations. With this driver, you can define your Go structs to model users, and GORM, together with the SQL Server driver, will:
+
+- Create the exact SQL Server tables, correctly mapping fields like IDs to identity columns or booleans to `bit`.
+- Add comments to columns for better database documentation.
+- Automatically create and update indexes and constraints.
+- Perform insert/update operations using optimized SQL Server commands that return inserted IDs.
+
+This streamlines development time and reduces errors, especially in production environments with multiple schemas and complex relationships.
+
+---
+
+## Getting Started
+
+To begin using the GORM SQL Server Driver:
+
+```go
+import (
+  "gorm.io/driver/sqlserver"
+  "gorm.io/gorm"
+)
+
+// Define your connection string (DSN)
+dsn := "sqlserver://username:password@localhost:1433?database=yourdb"
+
+// Open a GORM DB connection using the SQL Server Driver
+db, err := gorm.Open(sqlserver.Open(dsn), &gorm.Config{})
+if err != nil {
+    panic("failed to connect database")
+}
+```
+
+### Prerequisites
+
+- Microsoft SQL Server instance accessible with the correct login credentials.
+- Go environment with GORM and the `gorm.io/driver/sqlserver` driver installed.
+
+---
+
+## Practical Tips & Common Pitfalls
+
+- **Schema Accuracy:** When working with multiple schemas, specify schema in your Go struct table names if needed (`schema.TableName`). This avoids ambiguity and errors during migrations.
+- **Indexing:** Use GORM tags like `gorm:"index"` or `gorm:"uniqueIndex"` to properly define SQL Server indexes that the driver will create.
+- **Handling Identity Columns:** The driver manages identity insertions automatically for auto-increment fields, but explicit control is possible when needed.
+- **Error Handling:** Leverage the built-in error translation to catch and respond to common errors like duplicate keys.
+
+<Warning>
+Always ensure your connection string is correctly formatted and that your SQL Server instance accepts TCP/IP connections on the specified port.
+</Warning>
+
+---
+
+## Summary
+
+The GORM SQL Server Driver is an essential, officially supported component that abstracts the complexities of working with Microsoft SQL Server from Go developers. It delivers seamless integration, powerful ORM capabilities designed specifically for SQL Server’s architecture, and a developer-friendly interface to accelerate building scalable, reliable applications.
+
+For in-depth examples and configuration options, explore the related pages:
+
+- [Core Features at a Glance](/overview/introduction-core-concepts/core-features-overview)
+- [Managing Schema Migrations](/guides/database-operations/schema-migrations)
+- [Connecting with Azure AD Authentication](/guides/getting-started/azure-ad-auth)
+
+Tap into the full power of GORM backed by a SQL Server driver designed for production-ready projects.
+
+---
+
+<CardGroup cols={2}>
+<Card title="Try It Now">
+```go
+import (
+  "gorm.io/driver/sqlserver"
+  "gorm.io/gorm"
+)
+
+dsn := "sqlserver://user:pass@localhost:1433?database=dbname"
+db, err := gorm.Open(sqlserver.Open(dsn), &gorm.Config{})
+if err != nil {
+  panic(err)
+}
+```
+</Card>
+<Card title="Learn More">
+- [GORM Official Site](https://gorm.io)
+- [Microsoft SQL Server Documentation](https://learn.microsoft.com/en-us/sql/sql-server/)
+- [Azure AD Authentication Example](https://github.com/go-gorm/sqlserver#azure-ad-auth)
+</Card>
+</CardGroup>
+
+
+---

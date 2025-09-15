@@ -1,0 +1,188 @@
+---
+title: "Error Translation"
+description: "Covers the error translation logic, mapping SQL Server errors to GORM-relevant error types and messages. Learn best practices for catching, interpreting, and handling various error scenarios using error_translator helpers."
+---
+
+# Error Translation
+
+## Overview
+
+When working with Microsoft SQL Server via the GORM SQL Server Driver, error handling is critical for building robust and reliable applications. This page details the **Error Translation** mechanism that maps SQL Server-specific error codes to native GORM error types. Understanding this mapping empowers developers to catch, interpret, and respond to database errors in a clean and consistent manner.
+
+The driver internally uses an `error_translator` helper that converts common SQL Server errors into GORM's predefined error variables like `ErrDuplicatedKey` and `ErrForeignKeyViolated`. This abstraction simplifies error handling workflows and aligns database errors with GORM conventions, helping your application react appropriately to common database constraint violations.
+
+## Why Error Translation Matters
+
+Imagine your application attempts to insert a duplicate primary key or violates a foreign key constraint. SQL Server returns specific numeric error codes for such cases (e.g., 2627, 2601, 547). If your application deals directly with raw SQL errors, you would need to parse and interpret these error codes manually. The `error_translator` automates this by translating these codes to meaningful, standardized GORM errors which your code can easily handle, improving maintainability and clarity.
+
+## How Error Translation Works
+
+The SQL Server driver inspects errors produced during database operations. When the underlying error is a `mssql.Error` (from the `github.com/microsoft/go-mssqldb` driver), it checks the error’s `Number` field (the SQL Server error code). If the code matches one of the known error codes configured in the translator, the driver returns the corresponding GORM error instead of the raw SQL error.
+
+### Mapped Error Codes
+
+| SQL Server Error Code | GORM Error                   | Meaning                         |
+|----------------------|-----------------------------|--------------------------------|
+| 2627                 | `gorm.ErrDuplicatedKey`      | Violation of primary key or unique constraint during insert
+| 2601                 | `gorm.ErrDuplicatedKey`      | Duplicate key error (non-primary unique constraint)
+| 547                  | `gorm.ErrForeignKeyViolated` | Foreign key constraint violation (e.g., deleting referenced records)
+
+If an error code is not recognized, the raw error is returned unchanged.
+
+## Using the Error Translator in Practice
+
+### Example: Handling Duplicate Key Errors
+
+```go
+import (
+  "fmt"
+  "gorm.io/driver/sqlserver"
+  "gorm.io/gorm"
+  "gorm.io/gorm/logger"
+)
+
+func main() {
+  dsn := "sqlserver://user:password@localhost:1433?database=mydb"
+  db, err := gorm.Open(sqlserver.Open(dsn), &gorm.Config{
+    Logger: logger.Default.LogMode(logger.Info),
+  })
+  if err != nil {
+    panic(err)
+  }
+
+  // Attempt to create a record that violates a unique constraint...
+  err = db.Create(&MyModel{ID: 1}).Error
+  if err != nil {
+    if err == gorm.ErrDuplicatedKey {
+      fmt.Println("Duplicate key error: handle gracefully, maybe retry or notify user")
+    } else {
+      fmt.Printf("Unhandled error occurred: %v", err)
+    }
+  }
+}
+```
+
+### How to Catch and Interpret Errors
+
+- Use `Dialector.Translate(err error) error` to convert any error returned from database operations.
+- After translation, compare errors with standard GORM error constants:
+  - `gorm.ErrDuplicatedKey`
+  - `gorm.ErrForeignKeyViolated`
+
+This makes error handling consistent across different SQL dialects supported by GORM.
+
+## Internal Mechanism
+
+The core translation logic resides in the `Translate` method of the `Dialector` struct in the SQL Server driver:
+
+```go
+func (dialector Dialector) Translate(err error) error {
+  if mssqlErr, ok := err.(mssql.Error); ok {
+    if translatedErr, found := errCodes[mssqlErr.Number]; found {
+      return translatedErr
+    }
+    return err
+  }
+  return err
+}
+```
+
+- The method inspects if the error is a `mssql.Error`.
+- Checks if the error number matches a predefined list of SQL Server error codes.
+- Returns the mapped standardized GORM error if available.
+- Otherwise, returns the original error.
+
+### Supported Error Codes Map
+
+```go
+var errCodes = map[int32]error{
+	2627: gorm.ErrDuplicatedKey,
+	2601: gorm.ErrDuplicatedKey,
+	547:  gorm.ErrForeignKeyViolated,
+}
+```
+
+## Best Practices for Error Handling
+
+- Always use the driver’s `Translate` method when dealing with errors returned from database operations.
+- Structure your error handling logic to respond to GORM’s standardized error types.
+- For example, implement rollback or user feedback on `ErrForeignKeyViolated` or validation on `ErrDuplicatedKey`.
+- Avoid parsing raw SQL error messages yourself; rely on the translator for accuracy and consistency.
+
+## Troubleshooting Common Scenarios
+
+<AccordionGroup title="Common Error Translation Scenarios">
+<Accordion title="Duplicate Key Errors Not Caught">
+If your application still sees raw errors instead of `ErrDuplicatedKey`:
+
+- Verify the error originated from `mssql.Error` and contains the expected error code.
+- Check that your GORM dialect is properly initialized and uses the SQL Server driver.
+- Use debugging logs to inspect the raw error details before translation.
+</Accordion>
+<Accordion title="Foreign Key Constraint Violations">
+When deleting or updating records triggers an error:
+
+- Ensure foreign key constraints are enforced in your database.
+- Catch `ErrForeignKeyViolated` to provide user-friendly messages or perform compensating actions.
+</Accordion>
+</AccordionGroup>
+
+## Summary
+
+Error translation in the GORM SQL Server Driver abstracts raw SQL Server error codes into meaningful GORM errors, enabling straightforward and idiomatic Go error handling. By leveraging built-in mappings for common constraints, developers can write more resilient applications that gracefully recover or notify users about data conflicts and integrity violations.
+
+## Related Documentation
+
+- [SQL Server Dialector](/api-reference/core-api/dialector) — to understand how to configure and initialize the driver including error handling.
+- [Database Operations](/api-reference/core-api/db-operations) — for practical usage scenarios where error translation plays a key role.
+- [Status Codes & Common Errors](/api-reference/error-handling/status-codes) — for a broader overview of SQL Server errors and their meanings.
+- [Managing Schema Migrations](/guides/database-operations/schema-migrations) — helpful for understanding database constraints that might cause errors.
+
+## Additional Resources
+
+- Official Microsoft SQL Server Error Codes [Reference](https://learn.microsoft.com/en-us/sql/relational-databases/errors-events/database-engine-events-and-errors?view=sql-server-ver16)
+- GORM Error Handling Best Practices: https://gorm.io/docs/error_handling.html
+
+
+---
+
+# Appendix: Test Coverage for Error Translation
+
+The driver includes unit tests validating error translation correctness. For example:
+
+```go
+tests := []struct {
+  name string
+  err  error
+  want error
+}{
+  {name: "Duplicate key 2627", err: mssql.Error{Number: 2627}, want: gorm.ErrDuplicatedKey},
+  {name: "Duplicate key 2601", err: mssql.Error{Number: 2601}, want: gorm.ErrDuplicatedKey},
+  {name: "Foreign key violation 547", err: mssql.Error{Number: 547}, want: gorm.ErrForeignKeyViolated},
+}
+
+for _, tt := range tests {
+  got := dialector.Translate(tt.err)
+  if !errors.Is(got, tt.want) {
+    t.Errorf("Translate() = %v, want %v", got, tt.want)
+  }
+}
+```
+
+These tests provide confidence that your application's error handling stack responds correctly to SQL Server error conditions through the GORM driver.
+
+---
+
+# Quick Reference
+
+| Operation                    | Error Code | GORM Error              |
+|------------------------------|------------|------------------------|
+| Duplicate primary/unique key | 2627, 2601 | `gorm.ErrDuplicatedKey` |
+| Foreign key constraint fail  | 547        | `gorm.ErrForeignKeyViolated` |
+
+Always pass errors through `Dialector.Translate` before checking.
+
+
+---
+
+<Source url="https://github.com/go-gorm/sqlserver" paths={[{"path": "error_translator.go", "range": "1-28"}, {"path": "error_translator_test.go", "range": "1-43"}]} />

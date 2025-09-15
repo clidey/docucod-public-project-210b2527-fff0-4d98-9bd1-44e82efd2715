@@ -1,0 +1,140 @@
+---
+title: "Key Concepts & Terminology"
+description: "Introduces and explains domain-specific terms such as Dialector, DSN (Data Source Name), Azure AD Authentication, and driver integration. Clarifies terminology you'll encounter using the driver, fostering confidence and clarity when navigating the documentation and the code."
+---
+
+# Key Concepts & Terminology
+
+Understanding the foundational terms and concepts involved in using the GORM SQL Server Driver is essential to navigate this documentation confidently and to effectively integrate the driver into your Go applications. This page clarifies domain-specific terminology you'll encounter, supporting smoother onboarding and deeper comprehension.
+
+---
+
+## Dialector
+
+### What Is It?
+The Dialector represents the core bridge between GORM and a specific database—in this case, Microsoft SQL Server. It implements the necessary interfaces to translate GORM's generic database operations into SQL Server–specific SQL commands and behaviors.
+
+### Why It Matters
+By using the SQL Server Dialector, developers can write database-agnostic Go code with GORM that works seamlessly with SQL Server. It handles nuances like SQL syntax, data types, and query construction particular to SQL Server, so you don't have to.
+
+### Example Usage
+```go
+import (
+  "gorm.io/driver/sqlserver"
+  "gorm.io/gorm"
+)
+
+dsn := "sqlserver://gorm:password@localhost:1433?database=mydb"
+db, err := gorm.Open(sqlserver.Open(dsn), &gorm.Config{})
+if err != nil {
+  panic(err)
+}
+// Now `db` is configured for SQL Server operations
+```
+
+---
+
+## DSN (Data Source Name)
+
+### Definition
+The DSN is a formatted string containing the necessary connection information such as credentials, server address, port, and database name to establish a connection with SQL Server.
+
+### Structure Example
+```
+sqlserver://username:password@hostname:port?database=yourdb
+```
+
+### Importance
+This string encapsulates your connection configuration in a single, portable form. Correct DSN structure ensures smooth communication between your Go application and the SQL Server database.
+
+---
+
+## Azure AD Authentication
+
+### Overview
+Azure Active Directory (AD) Authentication enables you to connect to SQL Server using Azure AD identities instead of traditional username-password pairs. This enhances security and simplifies credential management in cloud or enterprise environments.
+
+### Integration Highlights
+- Requires using the Azure AD–enabled Go driver alongside the SQL Server Dialector.
+- DSN must be configured with the Azure AD driver name to enable this authentication mode.
+
+### Sample Initialization
+```go
+import (
+  "github.com/microsoft/go-mssqldb/azuread"
+  "gorm.io/driver/sqlserver"
+  "gorm.io/gorm"
+)
+
+dsn := "sqlserver://user@hostname:1433?database=yourdb"
+dialector := &sqlserver.Dialector{Config: &sqlserver.Config{DSN: dsn, DriverName: azuread.DriverName}}
+db, err := gorm.Open(dialector, &gorm.Config{})
+if err != nil {
+  panic(err)
+}
+// Connected using Azure AD Authentication
+```
+
+---
+
+## Driver Integration
+
+### What It Entails
+The GORM SQL Server Driver functions as a Dialector implementation and wraps the official Microsoft SQL Server Go driver (`github.com/microsoft/go-mssqldb`). This integration creates a smooth, idiomatic bridge between Go applications using GORM and the underlying SQL Server database.
+
+### Benefits
+- Utilizes the proven features and maturity of the Microsoft SQL Server driver.
+- Provides GORM-specific enhancements like advanced schema migrations, query building tailored for SQL Server, and error translation.
+- Supports SQL Server features transparently, including identity inserts, output clauses, and more.
+
+### User Perspective
+From your application’s point of view, this is a unified API that takes care of connection pooling, SQL generation, and dialect-specific behaviors, allowing you to remain focused on your application logic rather than database internals.
+
+---
+
+## Common Terminology
+
+| Term               | Meaning                                                                                              |
+|--------------------|----------------------------------------------------------------------------------------------------|
+| Migrator           | The component responsible for managing schema changes such as creating, altering, and dropping tables and columns.
+| Clause             | Parts of SQL statements that the Dialector constructs dynamically (e.g., WHERE, ORDER BY, LIMIT).
+| AutoIncrement      | A column attribute denoting automatically incrementing numeric values on inserts, handled specially by SQL Server.
+| Index              | Database indexes created for performance, which the driver supports including unique and conditional indexes.
+| Schema             | Defines the structure and organization of database objects. SQL Server supports multiple schemas per database.
+
+---
+
+## How These Concepts Fit Together
+
+```mermaid
+flowchart TD
+  App["Your Go Application"] --> |"Uses"| GORM[GORM ORM]
+  GORM --> |"Dialect"| Dialector["SQL Server Dialector"]
+  Dialector --> |"Wraps"| MSSQLDriver["Microsoft SQL Server Driver (go-mssqldb)"]
+  Dialector --> |"Manages"| Migrator["Schema Migrator"]
+  Migrator --> |"Operates On"| SQLServer["SQL Server Database"]
+  Dialector --> |"Handles"| Queries["SQL Queries & Commands"]
+  Dialector --> |"Translates"| Errors["Native Error Handling"]
+  App --> |"Configures With"| DSN["Data Source Name"]
+  DSN --> Dialector
+  Dialector --> |"Supports"| AzureAD["Azure AD Authentication"]
+```
+
+This diagram shows the relationship among your application, the GORM ORM, the SQL Server Dialector, and the underlying Microsoft SQL Server driver and database, with the DSN and authentication modes as configuration inputs.
+
+---
+
+## Practical Tips
+
+- **Always validate your DSN**: Misformatted DSNs are a common cause of connection failures.
+- **Use Azure AD auth where possible**: It enhances security by leveraging centralized identity management.
+- **Understand schema concepts**: SQL Server uses schemas to organize tables; the migrator respects and manages these.
+- **Be mindful of SQL Server data types**: The Dialector handles mapping Go data types, but size and precision may affect performance.
+- **Check index creation**: Migrator provides comprehensive support for unique, conditional, and composite indexes.
+
+---
+
+## Summary
+Mastering these key terms and concepts will empower you to leverage the GORM SQL Server Driver with confidence. They form the lens through which you will understand the deeper configuration options, advanced features, and troubleshooting steps detailed throughout the documentation.
+
+For more practical usage and deeper dives, navigate to [Core Features at a Glance](/overview/introduction-core-concepts/core-features-overview) and [Managing Schema Migrations](/guides/database-operations/schema-migrations).

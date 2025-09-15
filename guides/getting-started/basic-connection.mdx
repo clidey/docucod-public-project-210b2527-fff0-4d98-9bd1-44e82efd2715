@@ -1,0 +1,208 @@
+---
+title: "Connecting to SQL Server"
+description: "Walks through establishing your first SQL Server connection with GORM, including how to assemble and use connection strings (DSNs), troubleshooting tips, and verifying connectivity to your database."
+---
+
+# Connecting to SQL Server with GORM
+
+This guide walks you through establishing your first connection to a Microsoft SQL Server database using GORM's SQL Server driver. You will learn how to properly construct connection strings (DSNs), initiate connectivity, verify your setup, and troubleshoot common connection-related issues.
+
+---
+
+## 1. Overview
+
+### What You'll Achieve
+By following this guide, you will establish a working SQL Server database connection within your Go application using GORM. This foundational step enables your app to interact with your SQL Server database securely and efficiently.
+
+### Prerequisites
+- A running Microsoft SQL Server instance accessible from your Go development environment.
+- Go installed and your project initialized.
+- GORM and the GORM SQL Server driver installed (see [Installation Instructions](/getting-started/setup-and-installation/installation-instructions)).
+- Basic working knowledge of Go.
+
+### Estimated Time
+10 to 20 minutes
+
+### Difficulty Level
+Beginner to Intermediate
+
+---
+
+## 2. Step-by-Step Setup
+
+### Step 1: Assemble Your Connection String (DSN)
+GORM’s SQL Server driver uses a Data Source Name (DSN) conforming to the format supported by Microsoft's Go MSSQL driver (`github.com/microsoft/go-mssqldb`). The DSN includes authentication, server address, port, and database name.
+
+#### Basic DSN format:
+```
+sqlserver://username:password@host:port?database=your_db_name
+```
+
+#### Example:
+```go
+"sqlserver://gorm:LoremIpsum86@localhost:9930?database=gorm"
+```
+
+> **Tip:** Replace `username`, `password`, `host`, `port`, and `database` with your actual credentials and database info.
+
+### Step 2: Open a Connection Using GORM
+Import the necessary packages and use the DSN to open a connection.
+
+```go
+import (
+  "gorm.io/driver/sqlserver"
+  "gorm.io/gorm"
+)
+
+func main() {
+  dsn := "sqlserver://gorm:LoremIpsum86@localhost:9930?database=gorm"
+  db, err := gorm.Open(sqlserver.Open(dsn), &gorm.Config{})
+  if err != nil {
+    panic("failed to connect database: " + err.Error())
+  }
+
+  // Use db variable for your database operations
+}
+```
+
+Upon successful connection, `db` represents your connected database handle.
+
+### Step 3: Verify Connectivity
+
+to confirm the connection is valid, try a simple ping or a basic query:
+
+```go
+sqlDB, err := db.DB()
+if err != nil {
+    panic(err)
+}
+err = sqlDB.Ping()
+if err != nil {
+    panic("database unreachable: " + err.Error())
+}
+
+// Simple query example
+var result int
+_ = db.Raw("SELECT 1").Scan(&result)
+if result != 1 {
+    panic("unexpected result from test query")
+}
+```
+
+### Step 4: Optional Advanced Configuration
+If you want to customize driver settings or use Azure AD authentication, you can configure the dialector manually.
+
+#### Azure AD Authentication Example:
+
+```go
+import (
+  "github.com/microsoft/go-mssqldb/azuread"
+  "gorm.io/driver/sqlserver"
+  "gorm.io/gorm"
+)
+
+dsn := "sqlserver://gorm:LoremIpsum86@localhost:9930?database=gorm"
+dialector := &sqlserver.Dialector{Config: &sqlserver.Config{DSN: dsn, DriverName: azuread.DriverName}}
+db, err := gorm.Open(dialector, &gorm.Config{})
+if err != nil {
+  panic(err)
+}
+```
+
+Refer to the [Connecting with Azure AD Authentication](/guides/getting-started/azure-ad-auth) guide for detailed Azure authentication setup.
+
+---
+
+## 3. Understanding the DSN Components
+
+Breaking down the DSN allows you to customize and troubleshoot with confidence:
+
+| Component  | Description                             | Example          |
+|------------|-------------------------------------|------------------|
+| `sqlserver://` | Protocol scheme for Microsoft SQL Server | `sqlserver://`    |
+| `username` | SQL Server login username             | `gorm`           |
+| `password` | Associated password                    | `LoremIpsum86`    |
+| `host`     | Server address (IP or hostname)       | `localhost`      |
+| `port`     | TCP port where SQL Server listens     | `9930`           |
+| `database` | Name of your database                  | `gorm`           |
+
+Additional options can be added via query parameters in the URL to specify encryption, timeouts, etc.
+
+---
+
+## 4. Troubleshooting Connection Issues
+
+<AccordionGroup title="Common Problems and Solutions">
+<Accordion title="Invalid DSN or Missing Parameters">
+Ensure your DSN follows the format exactly. Typos in username, password, host, or query params (like `database`) can cause connection failures.
+
+- Double-check for special characters and escape them appropriately.
+- Validate server accessibility (ping the server address).
+</Accordion>
+<Accordion title="Authentication Failures">
+- Verify SQL Server authentication mode supports SQL logins.
+- Check username and password accuracy.
+- If using Azure AD, confirm proper driver is used with the `DriverName` config.
+</Accordion>
+<Accordion title="Network or Firewall Restrictions">
+- Validate port accessibility on the SQL Server host.
+- Ensure no firewall or network policies block traffic from your Go app.
+</Accordion>
+<Accordion title="Database Not Found or Permission Issues">
+- Confirm that the specified database exists on the SQL Server.
+- Verify the user has required permissions to connect and perform actions.
+</Accordion>
+<Accordion title="Error Examples">
+- `failed to connect to server`: usually indicates network or authentication issues.
+- `login failed for user`: authentication problems.
+- Consult [Troubleshooting Common Issues](/getting-started/validation-and-troubleshooting/troubleshooting-common-issues) for in-depth error guidance.
+</Accordion>
+</AccordionGroup>
+
+---
+
+## 5. Best Practices
+
+- Use configuration files or environment variables to securely store passwords and sensitive details rather than hardcoding DSNs.
+- Test connectivity independently (e.g., using `sqlcmd` or SSMS) before integrating with your Go app.
+- Use connection pooling features by accessing the underlying SQL connection with `db.DB()`.
+- Limit exposed privileges for the user configured in the DSN to only those needed.
+- Regularly update dependencies like the GORM driver and the underlying Microsoft Go MSSQL driver.
+
+---
+
+## 6. Summary Diagram
+
+```mermaid
+flowchart TD
+  A[Start: Prepare DSN] --> B[Configure DSN with credentials and server info]
+  B --> C[Import GORM and SQL Server driver]
+  C --> D[Call gorm.Open with sqlserver.Open(dsn)]
+  D --> E{Is connection successful?}
+  E -- Yes --> F[Use db handle for queries and operations]
+  E -- No --> G[Handle error and troubleshoot]
+
+  G --> B
+```
+
+---
+
+## 7. Next Steps
+
+- After establishing your connection, learn how to perform schema migrations and data operations:
+  - See [Managing Schema Migrations](/guides/database-operations/schema-migrations)
+  - Check out [Updating Data in SQL Server](/guides/database-operations/updating-records)
+- For secure connections using Azure AD, read [Connecting with Azure AD Authentication](/guides/getting-started/azure-ad-auth)
+- For troubleshooting connection or driver errors, consult [Troubleshooting Common Issues](/getting-started/validation-and-troubleshooting/troubleshooting-common-issues)
+
+---
+
+## Additional Resources
+- Official GORM documentation: [https://gorm.io](https://gorm.io)
+- Microsoft SQL Server driver for Go: [https://github.com/microsoft/go-mssqldb](https://github.com/microsoft/go-mssqldb)
+
+---
+
+If you encounter any issues during this process, refer to the troubleshooting resources or raise an issue with specific error messages and DSN details (excluding sensitive passwords) for community or team support.
+
+---

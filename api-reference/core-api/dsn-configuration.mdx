@@ -1,0 +1,247 @@
+---
+title: "DSN and Configuration"
+description: "Explanations of Data Source Name (DSN) formats and configuration options for SQL Server, including user/password and Azure AD authentication mechanisms. Covers all relevant DSN string patterns and configuration struct fields."
+---
+
+# DSN and Configuration
+
+This documentation details the Data Source Name (DSN) formats and configuration options available for connecting Go applications to Microsoft SQL Server using the GORM SQL Server Driver. It guides you through the supported DSN string patterns, including user/password authentication and Azure Active Directory (Azure AD) authentication, alongside the configuration struct fields that customize connection behavior.
+
+---
+
+## 1. Understanding the DSN Format
+
+### 1.1 What is a DSN?
+The Data Source Name (DSN) is a standardized string that specifies how to connect to a SQL Server instance. It includes server address, authentication credentials, database name, and other options.
+
+Using a correct DSN is critical to establish a successful connection with SQL Server through the GORM driver.
+
+### 1.2 Standard DSN Format
+
+The DSN for SQL Server follows the URL-style pattern:
+
+```
+sqlserver://<username>:<password>@<host>:<port>?key1=value1&key2=value2
+```
+
+- **username**: SQL Server user login
+- **password**: Associated password
+- **host**: Server address or IP
+- **port**: TCP port, default is often 1433
+- **query parameters**: Configuration options such as database name, encryption flags, connection timeouts
+
+#### Example:
+
+```go
+// Standard SQL Server connection example
+dsn := "sqlserver://gorm:LoremIpsum86@localhost:9930?database=gorm"
+db, err := gorm.Open(sqlserver.Open(dsn), &gorm.Config{})
+```
+
+### 1.3 Azure Active Directory Authentication DSN
+
+When connecting using Azure AD authentication, the DSN format remains the same, but the driver name switches to support Azure AD token-based authentication. You must specify the Azure AD driver explicitly.
+
+#### Example:
+
+```go
+import (
+  "github.com/microsoft/go-mssqldb/azuread"
+  "gorm.io/driver/sqlserver"
+  "gorm.io/gorm"
+)
+
+dsn := "sqlserver://gorm:LoremIpsum86@localhost:9930?database=gorm"
+dialector := &sqlserver.Dialector{Config: &sqlserver.Config{DSN: dsn, DriverName: azuread.DriverName}}
+db, err := gorm.Open(dialector, &gorm.Config{})
+```
+
+This approach allows seamless integration with Azure AD tokens, enabling secure, modern authentication methods in your application.
+
+---
+
+## 2. Configuration Struct: `sqlserver.Config`
+
+The driver exposes a configuration structure to manage connection parameters explicitly, providing flexibility beyond DSN strings.
+
+```go
+// Core Config fields
+type Config struct {
+  DriverName        string      // Database driver name. Defaults to "sqlserver" if empty.
+  DSN               string      // The connection string used for opening DB connections.
+  DefaultStringSize int         // Default max string size for string fields (optional).
+  Conn              gorm.ConnPool // Optional: Custom SQL connection pool for advanced scenarios.
+}
+```
+
+### Field Details:
+
+| Field              | Description                                                                                  |
+|--------------------|----------------------------------------------------------------------------------------------|
+| `DriverName`       | Name of the underlying driver. Set to "sqlserver" (default) or `azuread.DriverName` for Azure AD auth. |
+| `DSN`              | The full Data Source Name connection string containing server, database, credentials, and options. |
+| `DefaultStringSize`| Specifies the default length for string columns if none is set in the schema (e.g., 256).       |
+| `Conn`             | Optional: supply a pre-configured database connection pool to override driver defaults.        |
+
+### Usage Pattern
+
+You can create a dialector instance either by passing a DSN string directly or by using a fully configured `Config` struct.
+
+```go
+// Simple open with DSN
+db, err := gorm.Open(sqlserver.Open(dsn), &gorm.Config{})
+
+// Advanced open with Config
+cfg := sqlserver.Config{
+  DSN: dsn,
+  DriverName: "sqlserver",
+  DefaultStringSize: 256,
+}
+dialector := sqlserver.New(cfg)
+db, err := gorm.Open(dialector, &gorm.Config{})
+```
+
+---
+
+## 3. DSN Query Parameters
+
+The DSN supports several query parameters to fine-tune connection options. Common parameters include:
+
+- `database`: Specifies the target database name.
+- `encrypt`: Enables encryption (`true` or `false`).
+- `app name`: Custom application name for connection identification.
+- `connection timeout`: Seconds to wait before timing out (integer).
+- `dial timeout`: Dial timeout in seconds.
+
+**Note:** Detailed MS SQL Server driver options can be added following go-mssqldb conventions.
+
+---
+
+## 4. Typical User Flows for DSN Configuration
+
+### 4.1 Establishing a Standard Connection
+
+1. Define your DSN with server, port, username, password, and database.
+2. Use `sqlserver.Open(dsn)` to create a dialector.
+3. Open the database handle with `gorm.Open()`.
+4. Verify connectivity.
+
+### 4.2 Using Azure AD Authentication
+
+1. Prepare the DSN similarly.
+2. Set the `DriverName` in the `Config` to `azuread.DriverName`.
+3. Create the dialector with the config.
+4. Open GORM using the dialector.
+5. Handle token renewal and authentication externally as needed.
+
+<Tip>
+Decide on the authentication method upfront—standard or Azure AD—as it affects both the DSN and driver name. Combining proper DSN formatting with the correct driver ensures a smooth connection.
+</Tip>
+
+---
+
+## 5. Practical DSN Examples
+
+### 5.1 Basic SQL Server Connection
+
+```go
+dsn := "sqlserver://sa:yourStrong(!)Password@localhost:1433?database=MyDB"
+db, err := gorm.Open(sqlserver.Open(dsn), &gorm.Config{})
+```
+
+### 5.2 Connection with Additional Options
+
+```go
+dsn := "sqlserver://user:pass@localhost:1433?database=MyDB&encrypt=true&connection+timeout=30"
+db, err := gorm.Open(sqlserver.Open(dsn), &gorm.Config{})
+```
+
+### 5.3 Azure AD Authentication
+
+```go
+import "github.com/microsoft/go-mssqldb/azuread"
+
+dsn := "sqlserver://user@myserver.database.windows.net:1433?database=MyDB"
+dialector := &sqlserver.Dialector{Config: &sqlserver.Config{
+  DSN: dsn,
+  DriverName: azuread.DriverName,
+}}
+db, err := gorm.Open(dialector, &gorm.Config{})
+```
+
+---
+
+## 6. Best Practices and Common Pitfalls
+
+- **Always specify your database name** explicitly in the DSN query parameter to avoid defaulting to master or undesired databases.
+- **String length defaults:** If your model has string fields without explicit length, specify `DefaultStringSize` in Config to control schema creation sizing.
+- **Use Azure AD driver when using Azure Active Directory authentication**; mixing driver names can cause authentication failures.
+- **Escape special characters in passwords or usernames** within the DSN URL to prevent connection errors.
+- **Validate your DSN prior to use** and test connectivity especially when including advanced parameters like encryption or timeouts.
+
+<Warning>
+Incorrect DSN formatting or missing database parameter often leads to connection failures. Validate carefully and refer to basic connection examples.
+</Warning>
+
+---
+
+## 7. Troubleshooting Connection Issues
+
+Refer to the [Troubleshooting Common Issues](/getting-started/validation-and-troubleshooting/troubleshooting-common-issues) guide for resolving DSN-related errors and connection problems.
+
+Common problems include:
+
+- Incorrect address or port
+- Invalid credentials
+- Missing database parameter
+- Mismatched authentication driver for Azure AD
+
+---
+
+## 8. Visual: Connection Initialization Flow
+
+```mermaid
+sequenceDiagram
+    participant App as Go Application
+    participant GORM as GORM ORM
+    participant Driver as SQL Server Dialector
+    participant SQL as SQL Server Database
+
+    App->>GORM: Prepare DSN / Config
+    GORM->>Driver: Initialize Dialector with DSN
+    Driver->>SQL: Open TCP connection
+    SQL-->>Driver: Connection Established
+    Driver-->>GORM: Provide DB connection pool
+    GORM-->>App: Ready for DB Operations
+```
+
+---
+
+## 9. Related Resources
+
+- [Configuration & First Connection](/getting-started/setup-and-installation/configuration-and-first-connection) — How to build DSNs and connect
+- [Azure AD Authentication Guide](/guides/getting-started/azure-ad-auth) — Comprehensive Azure AD setup
+- [Installation Instructions](/getting-started/setup-and-installation/installation-instructions)
+- [Troubleshooting Common Issues](/getting-started/validation-and-troubleshooting/troubleshooting-common-issues)
+
+---
+
+## 10. Summary
+
+By mastering DSN construction and using the configuration struct effectively, you enable secure and robust connections from your Go applications to Microsoft SQL Server. Whether connecting via traditional credentials or modern Azure AD authentication, this guide equips you to precisely configure your connection setup for success.
+
+---
+
+## Appendix: Quick Reference DSN Parameters
+
+| Parameter      | Description                               | Example
+|----------------|-------------------------------------------|----------------------------
+| `database`     | Target database name                      | `database=gormDB`
+| `encrypt`      | Enable encrypted channel (`true` or `false`) | `encrypt=true`
+| `app name`     | Custom client application name            | `app+name=MyApp`
+| `connection timeout` | Seconds to wait for connection         | `connection+timeout=15`
+| `dial timeout` | Dial timeout in seconds                    | `dial+timeout=10`
+
+---
+
+# End of DSN and Configuration Documentation

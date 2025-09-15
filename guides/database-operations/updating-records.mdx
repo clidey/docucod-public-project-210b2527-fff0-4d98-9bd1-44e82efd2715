@@ -1,0 +1,259 @@
+---
+title: "Updating Data in SQL Server"
+description: "Covers practical techniques for updating records in SQL Server using GORM, focusing on batch updates, transactions, and error handling specific to the SQL Server dialect."
+---
+
+# Updating Data in SQL Server Using GORM
+
+## Overview
+This guide provides practical, step-by-step instructions to efficiently update records in Microsoft SQL Server using the GORM ORM for Go. It focuses on techniques tailored specifically for the SQL Server dialect, including batch updates, transaction handling, and effective error management. You will learn how to perform single and batch updates, manage complex update scenarios with transactions, and handle common SQL Server-specific errors gracefully.
+
+---
+
+## What You Will Achieve
+- Perform record updates using GORM tailored for SQL Server.
+- Execute batch updates efficiently.
+- Leverage transactions to maintain data integrity.
+- Handle and translate SQL Server errors for consistent application behavior.
+
+---
+
+## Prerequisites
+- GORM SQL Server Driver installed and configured according to [Installation Instructions](/getting-started/setup-and-installation/installation-instructions).
+- Established and working connection to SQL Server as detailed in [Configuration & First Connection](/getting-started/setup-and-installation/configuration-and-first-connection).
+- Basic familiarity with GORM’s CRUD operations.
+
+---
+
+## Time Estimate
+20-30 minutes to absorb and apply the examples in your project.
+
+---
+
+## Difficulty Level
+Intermediate
+
+---
+
+# Step-by-Step Instructions
+
+### Step 1: Understand the GORM Update Behavior with SQL Server
+The GORM SQL Server Dialector provides a customized update callback that optimizes how updates are structured for SQL Server. For example, auto-increment primary keys are omitted from update clauses automatically to avoid unintended changes.
+
+```go
+import (
+  "gorm.io/driver/sqlserver"
+  "gorm.io/gorm"
+)
+
+// Open connection
+dsn := "sqlserver://user:password@localhost:1433?database=yourdb"
+db, err := gorm.Open(sqlserver.Open(dsn), &gorm.Config{})
+if err != nil {
+  panic(err)
+}
+```
+
+<Tip>
+The `Update` callback internally omits auto-increment primary key fields from the SET clause to prevent accidental modifications.
+</Tip>
+
+---
+
+### Step 2: Perform a Single Record Update
+To update a single record, first retrieve or define the model instance and then use the `Save` or `Model().Updates()` method.
+
+```go
+// Example model
+type User struct {
+  ID    uint   `gorm:"primaryKey"`
+  Name  string
+  Email string
+}
+
+// Update a user name by ID
+var user User
+if err := db.First(&user, 1).Error; err != nil {
+  panic(err)
+}
+user.Name = "NewName"
+if err := db.Save(&user).Error; err != nil {
+  panic(err)
+}
+
+// Alternatively, update fields selectively
+if err := db.Model(&User{}).Where("id = ?", 1).Updates(map[string]interface{}{"name": "NewName"}).Error; err != nil {
+  panic(err)
+}
+```
+
+<Tip>
+Using `Model().Updates()` is more efficient when you only need to update specific columns without loading the whole record.
+</Tip>
+
+---
+
+### Step 3: Execute Batch Updates
+Batch updates allow modifying multiple records matching certain criteria in a single SQL statement.
+
+```go
+// Update all users with status "inactive" to "active"
+if err := db.Model(&User{}).Where("status = ?", "inactive").Update("status", "active").Error; err != nil {
+  panic(err)
+}
+
+// Update multiple columns in batch
+if err := db.Model(&User{}).
+  Where("created_at < ?", someDate).
+  Updates(map[string]interface{}{"status": "archived", "archived_at": time.Now()}).
+  Error; err != nil {
+    panic(err)
+}
+```
+
+<Warning>
+Batch updates update all records matching the condition without loading them individually. Always double-check your `Where()` clauses to avoid unintended changes.
+</Warning>
+
+---
+
+### Step 4: Use Transactions for Safe Updates
+Wrapping updates in transactions ensures that your operations are atomic and can be rolled back safely in case of errors.
+
+```go
+tx := db.Begin()
+if err := tx.Error; err != nil {
+  panic(err)
+}
+
+// Chain updates
+if err := tx.Model(&User{}).Where("id = ?", 1).Update("name", "TransactionName").Error; err != nil {
+  tx.Rollback()
+  panic(err)
+}
+
+// Other updates or operations
+if err := tx.Model(&User{}).Where("id = ?", 2).Updates(User{Name: "User2"}).Error; err != nil {
+  tx.Rollback()
+  panic(err)
+}
+
+// Commit transaction
+if err := tx.Commit().Error; err != nil {
+  panic(err)
+}
+```
+
+<Tip>
+SQL Server supports savepoints via `SAVE TRANSACTION`. GORM's SQL Server Dialector implements `SavePoint` and `RollbackTo` to manage nested transactions safely.
+</Tip>
+
+---
+
+### Step 5: Handle SQL Server-Specific Errors
+The driver translates common SQL Server error codes into standardized GORM errors for consistent error handling.
+
+| SQL Server Error Code | GORM Error               | Scenario                                  |
+| --------------------- | ----------------------- | -----------------------------------------|
+| 2627, 2601            | gorm.ErrDuplicatedKey    | Attempt to insert a duplicate primary or unique key |
+| 547                   | gorm.ErrForeignKeyViolated | Foreign key constraint violation          |
+
+```go
+if err := db.Model(&User{}).Create(&user).Error; err != nil {
+  if errors.Is(err, gorm.ErrDuplicatedKey) {
+    fmt.Println("Duplicate key error encountered")
+  } else if errors.Is(err, gorm.ErrForeignKeyViolated) {
+    fmt.Println("Foreign key constraint violated")
+  } else {
+    panic(err)
+  }
+}
+```
+
+<Note>
+The error translation is automatic and embedded in the SQL Server Dialector. You can directly compare errors against GORM’s predefined errors for control flow.
+</Note>
+
+---
+
+## Best Practices & Tips
+- Always validate your `Where()` clauses in update operations to prevent accidental bulk changes.
+- Use transactions when multiple related updates need to occur safely.
+- Leverage GORM’s structured error handling to respond programmatically to common SQL Server errors.
+- When working with auto-increment primary keys, avoid explicitly updating these fields as GORM automatically omits them.
+
+---
+
+## Common Pitfalls
+- **Attempting to update primary keys:** GORM's update callback excludes auto-increment primary keys from updates to prevent errors or unintended data changes.
+- **Incorrect WHERE clause in batch updates:** Missing or too broad WHERE clauses can lead to mass updates affecting unintended rows.
+- **Ignoring transaction commit errors:** Always check the result of `tx.Commit()` to catch any commit failures.
+
+---
+
+## Example Workflow: Update Multiple User Statuses in a Transaction
+```go
+func UpdateUserStatuses(db *gorm.DB, userIDs []uint, status string) error {
+  tx := db.Begin()
+  if tx.Error != nil {
+    return tx.Error
+  }
+
+  defer func() {
+    if r := recover(); r != nil {
+      tx.Rollback()
+      panic(r)
+    }
+  }()
+
+  if err := tx.Model(&User{}).
+    Where("id IN ?", userIDs).
+    Update("status", status).Error; err != nil {
+    tx.Rollback()
+    return err
+  }
+
+  return tx.Commit().Error
+}
+```
+
+---
+
+## Troubleshooting
+
+<AccordionGroup title="Common Issues Updating Records in SQL Server with GORM">
+<Accordion title="Error: Cannot update auto-increment primary key">
+GORM automatically excludes auto-increment primary key fields from updates to avoid SQL Server errors. If you see errors related to the primary key during update, verify you’re not manually modifying this field.
+</Accordion>
+
+<Accordion title="Batch update affects too many rows">
+Ensure your `Where()` condition is specific and correctly targets intended records. Always test your queries in a safe environment before production runs.
+</Accordion>
+
+<Accordion title="Transaction Commit Fails or Has No Effect">
+Check for errors during `tx.Commit()`. Also confirm that your transaction is not inadvertently rolled back earlier due to an error or panic.
+</Accordion>
+
+<Accordion title="Handling Duplicate Key Errors">
+Use GORM's error translation by checking if `errors.Is(err, gorm.ErrDuplicatedKey)` to gracefully handle attempts to insert or update rows violating unique constraints.
+</Accordion>
+</AccordionGroup>
+
+---
+
+## Next Steps & Related Guides
+
+- Learn how to manage schema changes effectively with [Managing Schema Migrations](/guides/database-operations/schema-migrations).
+- Explore connection options including Azure AD authentication in [Connecting with Azure AD Authentication](/guides/getting-started/azure-ad-auth).
+- Understand error handling further at [Error Translation](/api-reference/error-handling/error-translation).
+- Validate your setup with [Quick Validation Steps](/getting-started/validation-and-troubleshooting/quick-validation).
+
+---
+
+## Additional Resources
+- Official GORM website: [https://gorm.io](https://gorm.io)
+- Microsoft SQL Server error codes: [SQL Server Errors and Events](https://learn.microsoft.com/en-us/sql/relational-databases/errors-events/database-engine-events-and-errors)
+
+---
+
+By mastering the update techniques outlined here, you ensure robust, efficient, and safe data modifications in your Go applications that interact with SQL Server through the GORM driver.

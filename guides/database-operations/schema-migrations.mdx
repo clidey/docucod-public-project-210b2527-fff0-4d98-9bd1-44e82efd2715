@@ -1,0 +1,247 @@
+---
+title: "Managing Schema Migrations"
+description: "Shows how to create, update, and rollback database schemas on SQL Server with GORM’s migration tools, including best practices for versioning and structure management."
+---
+
+# Managing Schema Migrations with GORM SQL Server Driver
+
+Efficiently managing database schemas is essential for maintaining robust and scalable applications. This guide focuses on how to create, update, and rollback schemas in Microsoft SQL Server using GORM’s migration tools, tailored specifically with SQL Server nuances in mind. You'll learn best practices for versioning, schema structure management, and leveraging the driver's capabilities to streamline your migration workflows.
+
+---
+
+## 1. What This Guide Helps You Achieve
+
+This guide walks you through managing your database schema lifecycle using GORM SQL Server Driver:
+
+- **Create new database tables and structures** with ease.
+- **Update existing schemas** including columns, indexes, and constraints.
+- **Rollback or rename schemas and tables** to maintain schema version integrity.
+- **Work with column comments, indexes, and constraints** in SQL Server.
+- Understand best practices for **schema versioning and structure management**.
+
+### Prerequisites
+
+- A running Microsoft SQL Server instance.
+- Go environment set up with GORM and the GORM SQL Server Driver installed.
+- Basic familiarity with GORM's DB object and migration API.
+
+### Expected Outcome
+
+By following this guide, you'll confidently manage your SQL Server database schemas programmatically via GORM, ensuring your migrations are reliable, maintainable, and aligned with SQL Server’s features.
+
+### Time Estimate
+
+15-30 minutes for basic schema creation and updates plus additional time for complex migrations.
+
+### Difficulty Level
+
+Intermediate — assumes some knowledge of GORM and SQL Server schema concepts.
+
+---
+
+## 2. Core Concepts and Approach
+
+The GORM SQL Server Driver extends GORM’s generic migrator to handle SQL Server specifics such as schema names, extended properties (column comments), identity columns, indexing, and constraint management. It exposes methods like `AutoMigrate`, `CreateTable`, `AddColumn`, `RenameTable`, and `DropTable` with support for nuances like:
+
+- **Schema-qualified tables** (e.g., `schemaName.tableName`).
+- Preserving and updating **column comments** using SQL Server extended properties.
+- Handling **indexes and constraints** with SQL Server system views.
+- Supporting **safe renaming** and **dropping** while considering foreign key constraints.
+
+---
+
+## 3. Performing Schema Migrations
+
+Use GORM’s migrator via the `db.Migrator()` interface to manage schema changes. The SQL Server Dialector ensures SQL Server-specific commands run as expected.
+
+### Step 1: Create or AutoMigrate Tables
+
+GORM's `AutoMigrate` function creates tables if they do not exist and updates them otherwise.
+
+```go
+// Auto migrate a struct model, creating or updating the corresponding table
+err := db.AutoMigrate(&User{})
+if err != nil {
+    log.Fatalf("Failed to migrate User schema: %v", err)
+}
+```
+
+Key points:
+- Supports schema-qualified table names (e.g., `schemaName.User`).
+- Automatically applies column comments defined via struct tags `gorm:"comment:your comment"`.
+- Runs migrations in proper order to maintain integrity.
+
+### Step 2: Add New Columns
+
+To add a new column to an existing table:
+
+```go
+err := db.Migrator().AddColumn(&User{}, "Age")
+if err != nil {
+    log.Fatalf("Failed to add column: %v", err)
+}
+```
+
+This also adds any associated column comment if specified.
+
+### Step 3: Rename a Table
+
+Renaming a table handles schema-qualified names correctly:
+
+```go
+err := db.Migrator().RenameTable("old_table_name", "new_table_name")
+if err != nil {
+    log.Fatalf("Failed to rename table: %v", err)
+}
+```
+
+### Step 4: Drop a Table
+
+Safe drop that considers foreign key constraints:
+
+```go
+err := db.Migrator().DropTable(&User{})
+if err != nil {
+    log.Fatalf("Failed to drop table: %v", err)
+}
+```
+
+### Step 5: Manage Column Modifications
+
+**Rename a column:**
+
+```go
+err := db.Migrator().RenameColumn(&User{}, "oldColumn", "newColumn")
+```
+
+**Alter column type or constraints:**
+
+```go
+err := db.Migrator().AlterColumn(&User{}, "Age")
+```
+
+This sends an `ALTER TABLE ... ALTER COLUMN` SQL statement reflecting changes in the model.
+
+### Step 6: Indexes and Constraints
+
+Create, check existence, rename, or drop indexes:
+
+```go
+// Create an index
+err := db.Migrator().CreateIndex(&User{}, "idx_user_name")
+
+// Check if index exists
+exists := db.Migrator().HasIndex(&User{}, "idx_user_name")
+
+// Rename index
+err := db.Migrator().RenameIndex(&User{}, "idx_old", "idx_new")
+```
+
+Similarly, you can check for and manage foreign key constraints.
+
+### Step 7: Working with Column Comments
+
+Define comments using GORM struct tags:
+
+```go
+type User struct {
+    ID   uint   `gorm:"primaryKey;comment:Primary key ID"`
+    Name string `gorm:"size:255;comment:User's full name"`
+}
+```
+
+When migrating, SQL Server’s extended properties will be updated or added automatically.
+
+---
+
+## 4. Best Practices for Schema Migrations
+
+- **Use schema-qualified names** in your table structs when working with multiple schemas, e.g., `schemaName.tableName`.
+- **Keep migration code idempotent** by always using GORM’s auto migration tools rather than raw SQL.
+- **Leverage comments** for better maintainability and documentation of your schema.
+- **Test migrations** on staging databases before production.
+- **Order migrations carefully**, for example, create schemas before creating tables within them.
+- Use `db.Migrator().CurrentDatabase()` and `db.Migrator().DefaultSchema()` to confirm connection context.
+
+---
+
+## 5. Example: Implementing a Migration Workflow
+
+### Define the Model
+
+```go
+type Product struct {
+    ID          uint   `gorm:"primaryKey;comment:Primary key"`
+    Name        string `gorm:"size:255;comment:Product name"`
+    Description string `gorm:"comment:Detailed description of the product"`
+    Price       float64
+}
+```
+
+### Run Auto Migration
+
+```go
+if err := db.AutoMigrate(&Product{}); err != nil {
+    log.Fatalf("Migration failed: %v", err)
+}
+```
+
+### Add a Column
+
+```go
+if err := db.Migrator().AddColumn(&Product{}, "Discount"); err != nil {
+    log.Fatalf("Failed to add Discount column: %v", err)
+}
+```
+
+### Rename a Column
+
+```go
+if err := db.Migrator().RenameColumn(&Product{}, "Description", "ProductDescription"); err != nil {
+    log.Fatalf("Failed to rename column: %v", err)
+}
+```
+
+---
+
+## 6. Troubleshooting Common Issues
+
+<AccordionGroup title="Common Migration Problems and Solutions">
+<Accordion title="Table Not Created When Using AutoMigrate">
+Ensure your struct has a correct TableName method (if using schema-qualified names) and proper GORM tags. Also, verify the database user has CREATE TABLE permissions.
+</Accordion>
+<Accordion title="Column Comments Are Not Updated">
+Make sure your struct's `comment` tags are set correctly. The GORM SQL Server Driver uses extended properties but will only update comments during migrations that detect a change.
+</Accordion>
+<Accordion title="Foreign Key Constraints Prevent Drop Table">
+GORM attempts to drop dependent constraints before dropping tables. Check for dependent tables or relationships and drop or migrate them in the correct order.
+</Accordion>
+<Accordion title="Renaming a Table or Column Fails">
+Verify the table/column names exist and you have enough privileges. Also, ensure you’re using schema-qualified names if applicable.
+</Accordion>
+</AccordionGroup>
+
+<Tip>
+Use the `db.Migrator().CurrentDatabase()` and `db.Migrator().DefaultSchema()` methods to confirm the database context you are targeting for migrations.
+</Tip>
+
+---
+
+## 7. Advanced Considerations
+
+- **Transactional Migrations:** SQL Server supports transactional DDL commands; consider wrapping migrations with transactions to avoid partial schema changes.
+- **Versioned Migrations:** Integrate GORM migrations with a versioning tool or maintain migration versions in your application code for rollback capabilities.
+- **Handling Identity Inserts:** The driver manages identity inserts during inserts with explicit keys but be cautious when manually handling IDs.
+
+---
+
+## 8. Related Documentation and Next Steps
+
+- [Connecting to SQL Server Guide](/guides/getting-started/basic-connection) – Learn how to establish your initial connections.
+- [Azure AD Authentication Guide](/guides/getting-started/azure-ad-auth) – Securely authenticate to SQL Server.
+- [Core Features at a Glance](/overview/introduction-core-concepts/core-features-overview) – Understand key capabilities of the GORM SQL Server Driver.
+- [Error Handling & Translation](/api-reference/error-handling/error-translation) – Handle common SQL Server errors gracefully.
+
+---
+
+This guide completes your foundational knowledge to confidently manage your SQL Server schemas using GORM’s migration tools in a Go application, empowering you to build scalable, maintainable, and versioned database schema workflows.

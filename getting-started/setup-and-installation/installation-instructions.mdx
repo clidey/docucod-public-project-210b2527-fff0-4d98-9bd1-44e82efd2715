@@ -1,0 +1,166 @@
+---
+title: "Installation Instructions"
+description: "Quickly install the GORM SQL Server Driver and its dependencies on your platform. Follow step-by-step instructions for adding the package, importing required modules, and validating your installation in any development environment."
+---
+
+# Installation Instructions
+
+This guide will walk you through installing the GORM SQL Server Driver and its dependencies, enabling you to start developing Go applications that interact seamlessly with Microsoft SQL Server. Follow these step-by-step instructions to add the package to your project, import it correctly, and validate your installation.
+
+---
+
+## 1. Prerequisites & Requirements
+
+Before installing the driver, ensure you meet the following prerequisites:
+
+- **Go Version**: Go 1.18 or later is required.
+- **SQL Server**: Access to a running instance of Microsoft SQL Server (local or remote).
+- **Network Access**: The development environment must be able to connect to the SQL Server instance (check firewall and port settings, default port is usually 1433).
+- **Module Support**: Your Go project should use Go modules for dependency management (`go.mod`).
+
+<Tip>
+Make sure your `$GOPATH` and Go environment are set up correctly, and your project initializes modules if not already done (run `go mod init <module_name>`).
+</Tip>
+
+---
+
+## 2. Adding the GORM SQL Server Driver to Your Project
+
+You can add the driver package to your Go module with a simple command that downloads and installs the module and its dependencies.
+
+### Step 1: Install the Driver Package
+
+Run the following command in your project directory:
+
+```bash
+go get -u gorm.io/driver/sqlserver
+```
+
+This fetches the latest version of the GORM SQL Server Driver.
+
+### Step 2: Install the Required Microsoft SQL Server Driver
+
+The GORM SQL Server Driver depends on the `github.com/microsoft/go-mssqldb` package to communicate with SQL Server. This package will be automatically installed as a dependency when you import the GORM SQL Server Driver.
+
+---
+
+## 3. Importing the Driver in Your Code
+
+In your Go source files, import the necessary modules as follows:
+
+```go
+import (
+  "gorm.io/driver/sqlserver"
+  "gorm.io/gorm"
+)
+```
+
+If you intend to use Azure AD Authentication, also import the Azure AD driver:
+
+```go
+import (
+  "github.com/microsoft/go-mssqldb/azuread"
+  "gorm.io/driver/sqlserver"
+  "gorm.io/gorm"
+)
+```
+
+---
+
+## 4. Validating Your Installation
+
+Verify that the driver is installed and imported correctly by constructing a minimal connection example and checking for errors.
+
+### Sample Code to Open a Connection:
+
+```go
+package main
+
+import (
+  "fmt"
+  "gorm.io/driver/sqlserver"
+  "gorm.io/gorm"
+)
+
+func main() {
+  dsn := "sqlserver://gorm:LoremIpsum86@localhost:9930?database=gorm"
+  db, err := gorm.Open(sqlserver.Open(dsn), &gorm.Config{})
+  if err != nil {
+    fmt.Println("Failed to connect to database:", err)
+    return
+  }
+  fmt.Println("Successfully connected to SQL Server using GORM SQL Server Driver")
+  // Perform additional operations here...
+}
+```
+
+### Running Validation:
+
+1. Save the above code as `main.go`.
+2. Run the program with `go run main.go`.
+3. If successful, you will see the confirmation message.
+
+<Tip>
+Replace the DSN string with your actual SQL Server credentials and server details.
+</Tip>
+
+---
+
+## 5. Optional: Enable Azure AD Authentication
+
+For organizations using Azure Active Directory for database authentication, configure the driver to use Azure AD by creating a dialector with the Azure AD driver name.
+
+```go
+import (
+  "github.com/microsoft/go-mssqldb/azuread"
+  "gorm.io/driver/sqlserver"
+  "gorm.io/gorm"
+)
+
+dsn := "sqlserver://gorm:LoremIpsum86@localhost:9930?database=gorm"
+dialector := &sqlserver.Dialector{Config: &sqlserver.Config{DSN: dsn, DriverName: azuread.DriverName}}
+db, err := gorm.Open(dialector, &gorm.Config{})
+```
+
+Refer to the [Connecting with Azure AD Authentication guide](/guides/getting-started/azure-ad-auth) for detailed setup.
+
+---
+
+## 6. Troubleshooting Installation Issues
+
+<AccordionGroup title="Common Installation Issues and Solutions">
+<Accordion title="Issue: Driver package not found or cannot be imported">
+- Ensure you have initialized your project with Go modules (`go mod init <module_name>`).
+- Run `go get -u gorm.io/driver/sqlserver` to explicitly fetch the package.
+- Confirm your `go.mod` lists the package under `require`.
+</Accordion>
+<Accordion title="Issue: Connection fails with invalid DSN or credentials">
+- Double-check your DSN string format.
+- Verify SQL Server is running and accessible from your environment.
+- Confirm username, password, server, port, and database names in DSN.
+</Accordion>
+<Accordion title="Issue: Azure AD Authentication setup errors">
+- Confirm you imported `github.com/microsoft/go-mssqldb/azuread`.
+- Make sure your Azure AD permissions and SQL Server configurations are correct.
+- Consult the Azure AD Authentication guide for detailed steps.
+</Accordion>
+</AccordionGroup>
+
+---
+
+## 7. Next Steps
+
+After successfully installing and validating the GORM SQL Server Driver, proceed to:
+
+- Configure your database connections and credentials properly.
+- Explore schema migrations and error handling via related documentation.
+- Implement database operations using GORM with SQL Server.
+
+See [Configuration & First Connection](/getting-started/setup-and-installation/configuration-and-first-connection) for setup details.
+
+
+---
+
+For more examples and advanced topics, visit the [official GORM website](https://gorm.io) and the GitHub repository at [https://github.com/go-gorm/sqlserver](https://github.com/go-gorm/sqlserver).
+
+---
