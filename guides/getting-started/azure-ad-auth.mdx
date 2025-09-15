@@ -1,0 +1,185 @@
+---
+title: "Connecting with Azure AD Authentication"
+description: "Demonstrates how to connect GORM to SQL Server using Azure Active Directory authentication, outlining configuration steps, security implications, and differences from standard DSN usage."
+---
+
+# Connecting with Azure AD Authentication
+
+This guide demonstrates how to connect your Go application using GORM with Microsoft SQL Server through Azure Active Directory (Azure AD) authentication. It explains the distinct configuration steps required, highlights security considerations, and clarifies how this differs from the standard SQL Server connection string (DSN) usage.
+
+---
+
+## 1. Overview
+
+Azure AD authentication provides a secure, centralized identity mechanism to access SQL Server databases without embedding database usernames or passwords in your connection strings. This is particularly valuable in enterprise and cloud-native applications requiring seamless and secure access control.
+
+Using Azure AD with the GORM SQL Server Driver leverages the `go-mssqldb` driver’s Azure AD support to enable token-based authentication.
+
+---
+
+## 2. Prerequisites
+
+Before you begin, ensure you have the following:
+
+- **Go environment configured:** Make sure Go is installed and your workspace is set up.
+- **GORM SQL Server Driver installed:** Follow the [Installation Instructions](/getting-started/setup-and-installation/installation-instructions) if not already done.
+- **Azure AD tenant and SQL Server configured:** Your SQL Server instance must be configured to accept Azure AD authentication.
+- **Azure AD credentials and permissions:** You should have client ID, tenant ID, and client secret or other Azure AD authentication credentials as required.
+
+For more details on prerequisites and environment setup, reference the [Prerequisites & System Requirements](/getting-started/setup-and-installation/prerequisites-and-requirements).
+
+---
+
+## 3. Understanding the Difference from Standard DSN Usage
+
+When connecting with Azure AD authentication, the key difference is in the `DriverName` parameter within the Dialector configuration. Instead of using the default `sqlserver` driver, you specify the specialized Azure AD driver provided by the `github.com/microsoft/go-mssqldb/azuread` package.
+
+This integration uses token-based authentication under the hood, differing from the classic username/password approach embedded in the DSN.
+
+---
+
+## 4. Step-by-Step Configuration and Connection
+
+Follow these steps to configure and establish a connection using Azure AD authentication with GORM:
+
+<Steps>
+<Step title="Import Required Packages">
+Include the `azuread` driver from the official Microsoft `go-mssqldb` library, plus GORM and the SQL Server driver:
+
+```go
+import (
+  "github.com/microsoft/go-mssqldb/azuread"
+  "gorm.io/driver/sqlserver"
+  "gorm.io/gorm"
+)
+```
+</Step>
+
+<Step title="Prepare the DSN">
+Compose the standard SQL Server DSN string with the necessary parameters, excluding traditional username/password for Azure AD:
+
+```go
+dsn := "sqlserver://<SERVER>:<PORT>?database=<DB_NAME>"
+```
+
+> Replace `<SERVER>`, `<PORT>`, and `<DB_NAME>` with your actual SQL Server host, port, and database name.
+
+Azure AD-specific tokens or credentials will be handled by the driver based on your environment or managed identity configurations.
+</Step>
+
+<Step title="Create the Dialector with Azure AD Driver">
+Construct the SQL Server Dialector for GORM and set the `DriverName` to the Azure AD driver:
+
+```go
+dialector := &sqlserver.Dialector{
+  Config: &sqlserver.Config{
+    DSN: dsn,
+    DriverName: azuread.DriverName, // Use Azure AD driver
+  },
+}
+```
+
+This tells GORM to use the Azure AD-enabled connection method.
+</Step>
+
+<Step title="Open the GORM Database Connection">
+Initialize GORM with the custom dialector:
+
+```go
+db, err := gorm.Open(dialector, &gorm.Config{})
+if err != nil {
+  // Handle error if connection fails
+  log.Fatalf("failed to connect to Azure AD SQL Server: %v", err)
+}
+```
+
+Successful `db` initialization means your Go application is connected to SQL Server using Azure AD authentication.
+</Step>
+</Steps>
+
+---
+
+## 5. Example Code Snippet
+
+Here is a complete minimal example illustrating the Azure AD authentication flow:
+
+```go
+package main
+
+import (
+  "log"
+  "github.com/microsoft/go-mssqldb/azuread"
+  "gorm.io/driver/sqlserver"
+  "gorm.io/gorm"
+)
+
+func main() {
+  // Compose DSN without username/password
+  dsn := "sqlserver://myserver.database.windows.net:1433?database=mydb"
+
+  // Setup dialector with Azure AD driver
+  dialector := &sqlserver.Dialector{
+    Config: &sqlserver.Config{
+      DSN: dsn,
+      DriverName: azuread.DriverName,
+    },
+  }
+
+  // Open connection
+  db, err := gorm.Open(dialector, &gorm.Config{})
+  if err != nil {
+    log.Fatalf("failed to connect to database: %v", err)
+  }
+
+  // Use `db` to perform database operations
+  // For example, ping the database
+  sqlDB, err := db.DB()
+  if err != nil {
+    log.Fatalf("failed to get sql.DB: %v", err)
+  }
+  if err = sqlDB.Ping(); err != nil {
+    log.Fatalf("cannot ping database: %v", err)
+  }
+  log.Println("Successfully connected to SQL Server with Azure AD authentication")
+}
+```
+
+---
+
+## 6. Security Considerations
+
+- **Credential Management:** Use trusted and secure ways to provide Azure AD credentials such as environment variables, managed identities, or Azure Key Vault.
+- **Token Renewal:** The Azure AD driver manages access token renewal automatically, reducing complexity.
+- **Avoid Storing Passwords:** Since Azure AD uses tokens, avoid embedding any passwords for database access.
+
+---
+
+## 7. Troubleshooting Tips
+
+<Tip>
+If you encounter authentication errors:
+
+- Verify Azure AD user/service principal permissions on SQL Server.
+- Confirm your DSN points to the correct server and database.
+- Ensure your environment variables or managed identity setups are correctly configured.
+- Review network connectivity and firewall rules.
+- Enable detailed logging in `go-mssqldb` for debugging.
+</Tip>
+
+>If using managed identity in Azure, make sure your environment supports it correctly (e.g., running in Azure VM, Azure App Service).
+
+---
+
+## 8. Related Documentation & Next Steps
+
+- [Installation Instructions](/getting-started/setup-and-installation/installation-instructions) — Install the driver before setting up Azure AD authentication.
+- [Configuration & First Connection](/getting-started/setup-and-installation/configuration-and-first-connection) — Learn DSN basics and standard connection setup.
+- [Quick Validation Steps](/getting-started/validation-and-troubleshooting/quick-validation) — Verify your connection.
+- [Managing Schema Migrations](/guides/database-operations/schema-migrations) — After connection, manage your database structure effectively.
+- [Error Translation](/api-reference/error-handling/error-translation) — Understand errors when authenticating and interacting with SQL Server.
+
+---
+
+## 9. Summary
+
+Connecting with Azure AD authentication allows secure access to SQL Server databases in Go applications using GORM without embedding sensitive credentials directly. By specifying the Azure AD driver during dialector setup, you enable token-based, managed authentication aligned with Azure best practices. Follow this guide to configure your DSN, dialector, and GORM initialization for safe and reliable Azure AD connections.
