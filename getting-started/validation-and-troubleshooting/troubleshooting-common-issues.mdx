@@ -1,0 +1,191 @@
+---
+title: "Troubleshooting Common Issues"
+description: "Troubleshoot common problems you might encounter during installation or first use. This guide covers typical errors, connectivity issues, authentication challenges, and points you towards effective solutions."
+---
+
+# Troubleshooting Common Issues
+
+This guide helps you quickly identify and resolve common problems encountered when installing, configuring, or running your first operations with the GORM SQL Server Driver. Whether you face installation errors, connectivity problems, or authentication challenges, this page equips you with practical solutions and tips to get back on track.
+
+---
+
+## 1. Installation and Setup Issues
+
+### Symptom: Errors During Module Installation or Import
+
+- **Verify Go Environment:** Ensure your Go development environment matches the required version for GORM and the SQL Server driver.
+- **Dependency Conflicts:** Run `go mod tidy` to clean up and verify module dependencies.
+- **Correct Import Statements:** Confirm you import the driver using:
+
+```go
+import (
+  "gorm.io/driver/sqlserver"
+  "gorm.io/gorm"
+)
+```
+
+- **Expected Output Verification:** After installation, check if you can build your application without errors.
+
+<Tip>
+Always use package manager commands (`go get -u gorm.io/driver/sqlserver`) to install or update the driver.
+</Tip>
+
+### Symptom: Failure to Open Database Connection
+
+- Confirm your Data Source Name (DSN) string matches this format:
+
+```go
+dsn := "sqlserver://user:password@host:port?database=yourdb"
+```
+
+- Ensure SQL Server is running and reachable at the specified host and port.
+- Make sure firewall or network rules allow connections.
+
+<Warning>
+Incorrect DSN formats or typos are the most frequent root of connection failures.
+</Warning>
+
+### Troubleshooting Steps:
+
+1. Ping the SQL Server host from your development machine or server to confirm connectivity.
+2. Use `sqlcmd` or a GUI tool to verify SQL Server accepts connections using the provided credentials.
+3. Check that the port specified is correct and open.
+
+
+## 2. Common Connection Errors and Fixes
+
+### Authentication Failed
+
+- Ensure correct username and password in your DSN.
+- For Azure AD Authentication, use the correct driver configuration:
+
+```go
+import (
+  "github.com/microsoft/go-mssqldb/azuread"
+  "gorm.io/driver/sqlserver"
+  "gorm.io/gorm"
+)
+
+dsn := "sqlserver://user:password@host:port?database=yourdb"
+dialector := &sqlserver.Dialector{Config: &sqlserver.Config{DSN: dsn, DriverName: azuread.DriverName}}
+db, err := gorm.Open(dialector, &gorm.Config{})
+```
+
+- Verify your Azure AD token scopes and permissions if applicable.
+
+<Tip>
+When switching from SQL Authentication to Azure AD, always update the Dialector's DriverName to `azuread.DriverName`.
+</Tip>
+
+### Network Timeouts or Connection Refused
+
+- Confirm SQL Server accepts TCP/IP connections.
+- Check network latency or firewall blocking ports.
+- Validate SQL Server configuration with SQL Server Configuration Manager to enable TCP/IP.
+
+
+## 3. Handling SQL Server Specific Errors
+
+The GORM SQL Server Driver translates common SQL Server errors into GORM-native errors for easier handling.
+
+Here are some frequent SQL error codes and their meaning:
+
+| SQL Server Error Code | Meaning                        | GORM Equivalent Error         |
+|----------------------|--------------------------------|------------------------------|
+| 2627, 2601           | Duplicate key violation         | `gorm.ErrDuplicatedKey`       |
+| 547                  | Foreign key constraint violation | `gorm.ErrForeignKeyViolated` |
+
+### Working with Translated Errors
+
+When executing queries or data operations, inspect errors returned by GORM. For example:
+
+```go
+if err := db.Create(&user).Error; err != nil {
+  if errors.Is(err, gorm.ErrDuplicatedKey) {
+    // Handle duplicate key
+  } else if errors.Is(err, gorm.ErrForeignKeyViolated) {
+    // Handle foreign key violation
+  } else {
+    // General error handling
+  }
+}
+```
+
+<Tip>
+Use the error translation for precise error handling in your application logic and to improve user feedback.
+</Tip>
+
+## 4. Common Pitfalls in Data Operations
+
+### Identity Insert Errors
+
+- When manually setting primary keys that are auto-incremented, you might experience errors.
+- The driver automatically uses `SET IDENTITY_INSERT ON` around insert statements when needed.
+- Avoid manually disabling this unless required.
+
+### Schema Migrations Failures
+
+- Verify the connected database user has appropriate permissions to create or alter tables.
+- Use the migrator API provided by the driver carefully and validate schema names if you use multiple schemas.
+
+
+## 5. Debugging Tips and Best Practices
+
+- Enable GORM's debug mode to log raw SQL and errors:
+
+```go
+db, err := gorm.Open(sqlserver.Open(dsn), &gorm.Config{Logger: logger.Default.LogMode(logger.Info)})
+```
+
+- Validate connection with a simple query:
+
+```go
+var version string
+db.Raw("SELECT @@VERSION").Scan(&version)
+fmt.Println("SQL Server Version:", version)
+```
+
+- Check connection pool settings for high-load applications.
+
+
+## 6. Additional Resources and Support
+
+- Refer to the [Installation Instructions](/getting-started/setup-and-installation/installation-instructions) page for detailed setup guidance.
+- Consult [Connecting with Azure AD Authentication](/guides/getting-started/azure-ad-auth) for secure connection scenarios.
+- Review [Error Translation](/api-reference/error-handling/error-translation) for comprehensive error handling.
+
+
+## 7. Troubleshooting Checklist
+
+<AccordionGroup title="Troubleshooting Common Issues Checklist">
+<Accordion title="Cannot Connect to SQL Server">
+- Confirm DSN correctness
+- Verify SQL Server is running
+- Check network/firewall settings
+- Test connectivity with other tools
+</Accordion>
+<Accordion title="Authentication Errors">
+- Verify credentials
+- Confirm Azure AD config if used
+- Check user permissions
+</Accordion>
+<Accordion title="Duplicate Key or Foreign Key Errors">
+- Confirm primary and foreign key values
+- Use error translation to catch expected conditions
+</Accordion>
+<Accordion title="Schema Migration Fails">
+- Ensure correct permissions
+- Confirm schema naming correctness
+- Use debug logs for detailed error traces
+</Accordion>
+</AccordionGroup>
+
+---
+
+<Check>
+If you continue to experience issues, open an issue at the official repository: [https://github.com/go-gorm/sqlserver/issues](https://github.com/go-gorm/sqlserver/issues) with detailed logs.
+</Check>
+
+---
+
+This troubleshooting guide is your companion to resolving the most frequent challenges when working with the GORM SQL Server Driver. Apply these steps, leverage logging, and cross-reference configuration to achieve a reliable and smooth database integration experience.
