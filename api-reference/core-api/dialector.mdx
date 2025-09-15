@@ -1,0 +1,293 @@
+---
+title: "SQL Server Dialector"
+description: "Detailed description of the Dialector struct and associated methods, including options for both standard and Azure AD authentication. Learn how to construct, configure, and supply a Dialector to GORM for reliable SQL Server connectivity."
+---
+
+# SQL Server Dialector
+
+The SQL Server Dialector in GORM provides a specialized adapter (`Dialector` struct) and associated methods that enable seamless interaction with Microsoft SQL Server databases. This dialector supports connection setup, query building, schema migrations, and native SQL Server features, while also catering to the authentication needs—including both standard and Azure Active Directory (Azure AD) authentication.
+
+This documentation guides you through constructing and configuring the `Dialector`, highlighting options for authentication, detailing key methods, and illustrating how to supply the dialector to GORM for robust SQL Server connectivity.
+
+---
+
+## 1. Overview of the Dialector
+
+The `Dialector` struct encapsulates configuration and functionality specific to SQL Server:
+
+- **Core Role**: Implements GORM's `Dialector` interface for MS SQL Server compatibility.
+- **Config Options**: Includes DriverName, Data Source Name (DSN), connection pooling, and string size defaults.
+
+### Creating a Dialector
+
+You can create a `Dialector` using either:
+
+- **Open DSN directly** (standard or Azure AD):
+
+  ```go
+  import "gorm.io/driver/sqlserver"
+
+  dsn := "sqlserver://user:password@localhost:1433?database=mydb"
+  dialector := sqlserver.Open(dsn)
+  db, err := gorm.Open(dialector, &gorm.Config{})
+  ```
+
+- **Custom Config struct**: especially useful for integrating Azure AD authentication
+
+  ```go
+  import (
+    "github.com/microsoft/go-mssqldb/azuread"
+    "gorm.io/driver/sqlserver"
+    "gorm.io/gorm"
+  )
+
+  config := sqlserver.Config{
+    DSN: "sqlserver://user@localhost:1433?database=mydb",
+    DriverName: azuread.DriverName, // uses Azure AD auth driver
+  }
+  dialector := sqlserver.New(config)
+  db, err := gorm.Open(dialector, &gorm.Config{})
+  ```
+
+> The ability to specify `DriverName` in the configuration enables using the official `go-mssqldb` driver for both standard SQL Server and Azure AD authentication, providing flexibility.
+
+---
+
+## 2. Dialector Configuration
+
+### Config Struct
+
+| Field             | Description                                                        |
+|-------------------|--------------------------------------------------------------------|
+| `DriverName`      | The Go database driver name, default is `sqlserver`. Can be set to Azure AD driver name. |
+| `DSN`             | Data Source Name string defining connection details.              |
+| `DefaultStringSize` | Default varchar/nvarchar size when indexing string fields with no explicit size. |
+| `Conn`            | Optionally inject a custom connection pool implementing `gorm.ConnPool`. |
+
+> When `Conn` is provided, GORM uses the supplied pool instead of opening a new connection.
+
+---
+
+## 3. Initializing the Dialector in GORM
+
+Upon opening a database with the dialector, GORM internally calls `Initialize(db *gorm.DB)`:
+
+- **Registers SQL Server specific SQL clauses and callbacks** including custom `Create` and `Update` operations suited to SQL Server syntax.
+- **Manages SQL Server identity insert behavior** when inserting records with explicit primary keys.
+- **Sets up connection pool and driver name** based on configuration.
+- **Configures SQL clause builders** to handle SQL Server syntax for features like `LIMIT` (translated to `OFFSET/FETCH`), and `RETURNING` output.
+
+Example:
+
+```go
+db, err := gorm.Open(sqlserver.Open(dsn), &gorm.Config{})
+if err != nil {
+  // handle error
+}
+```
+
+---
+
+## 4. Key Methods and Features
+
+### Clause Builders
+
+- **LIMIT Clause**: Translates GORM limit and offset into SQL Server's `ORDER BY OFFSET ... FETCH NEXT ... ROWS ONLY` syntax.
+- **RETURNING Clause**: Implements SQL Server's `OUTPUT INSERTED.*` or `OUTPUT DELETED.*` for operations that return affected rows.
+
+### BindVarTo
+
+Outputs parameter placeholders as `@p{n}` for SQL Server compatibility.
+
+### QuoteTo
+
+Encloses SQL identifiers in double quotes, properly quoting schema and table names with dot delimiters.
+
+### DataTypeOf
+
+Maps Go/GORM data types to SQL Server data types, considering:
+
+- Boolean types to `bit`
+- Integer sizes mapped to `smallint`, `int`, or `bigint`
+- Auto-increment integer types get `IDENTITY(1,1)`
+- Decimal, float with precision and scale
+- String types default to `nvarchar` with configurable size
+- Time types as `datetimeoffset` with precision support
+- Bytes as `varbinary(MAX)`
+
+### SavePoint and RollbackTo
+
+Support for nested transactions using SQL Server's `SAVE TRANSACTION` and `ROLLBACK TRANSACTION`.
+
+---
+
+## 5. Authentication Options
+
+### Standard Authentication
+
+Use the standard connection string (DSN) format with username and password:
+
+```go
+dsn := "sqlserver://user:password@localhost:1433?database=mydb"
+dialector := sqlserver.Open(dsn)
+db, err := gorm.Open(dialector, &gorm.Config{})
+```
+
+### Azure Active Directory Authentication
+
+For Azure AD auth, specify the driver to use Microsoft's Azure AD driver from `go-mssqldb`:
+
+```go
+import "github.com/microsoft/go-mssqldb/azuread"
+
+config := sqlserver.Config{
+  DSN: "sqlserver://user@localhost:1433?database=mydb",
+  DriverName: azuread.DriverName,
+}
+dialector := sqlserver.New(config)
+db, err := gorm.Open(dialector, &gorm.Config{})
+```
+
+---
+
+## 6. Using the Dialector with GORM
+
+Once you have a `Dialector` instance, usage in GORM follows a simple pattern:
+
+1. Construct the Dialector using `Open` or `New`.
+2. Pass the dialector to `gorm.Open`.
+3. Use GORM APIs to work with your database.
+
+Example:
+
+```go
+import (
+  "gorm.io/gorm"
+  "gorm.io/driver/sqlserver"
+)
+
+dsn := "sqlserver://gorm:secret@localhost:1433?database=gorm"
+db, err := gorm.Open(sqlserver.Open(dsn), &gorm.Config{})
+if err != nil {
+  panic(err)
+}
+
+// Use GORM with SQL Server
+var users []User
+db.Find(&users)
+```
+
+---
+
+## 7. Practical Tips and Best Practices
+
+- **Explicit DriverName when using Azure AD**: Always set `DriverName: azuread.DriverName` in the `Config` struct for correct authentication.
+- **Customize `DefaultStringSize`** for indexable string fields with no specified length to avoid overly large column sizes.
+- **Connection Pool**: For advanced scenarios, inject your own connection pool via `Conn` field in `Config` to reuse connections or implement custom pooling.
+- **Identity Insert Handling**: The dialector automatically manages identity insert during create operations when primary keys are specified.
+- **Error Translation**: Utilize the error translation support for SQL Server-specific error codes mapped to GORM standard errors.
+
+---
+
+## 8. Common Pitfalls
+
+- Forgetting to set the `DriverName` to Azure AD's driver name when using Azure AD will cause authentication failures.
+- Using very large default string sizes without considering SQL Server limits can cause performance issues or errors.
+- Not closing connections/pools correctly if manually managing pools.
+
+---
+
+## 9. Related Resources
+
+- See the [Azure AD Authentication guide](https://gorm.io/guides/getting-started/azure-ad-auth) for detailed setup instructions.
+- Consult the [Schema Migration guide](https://gorm.io/guides/database-operations/schema-migrations) for schema management.
+- Review the [Error Translation API Reference](https://gorm.io/api-reference/error-handling/error-translation) for mapping SQL Server errors.
+- Example usage available in the [README.md](https://github.com/go-gorm/sqlserver/blob/main/README.md).
+
+---
+
+## 10. Summary Diagram
+
+```mermaid
+sequenceDiagram
+  participant App as Go Application
+  participant GORM as GORM ORM
+  participant Dialector as SQL Server Dialector
+  participant MSSQL as Microsoft SQL Server
+
+  App->>GORM: Open(dialector)
+  GORM->>Dialector: Initialize(db)
+  Dialector->>MSSQL: Open connection (DSN, DriverName)
+
+  App->>GORM: Perform DB operations (create, update, query)
+  GORM->>Dialector: Build SQL with SQL Server clauses
+  Dialector->>MSSQL: Send SQL queries
+  MSSQL-->>Dialector: Result/Errors
+  Dialector-->>GORM: Translate errors (if any)
+  GORM-->>App: Return results or errors
+```
+
+This diagram illustrates the flow starting from app initialization through the dialector managing dialect-specific behavior and communicating with SQL Server.
+
+---
+
+## 11. Code Snippet: Opening DB with Azure AD authentication
+
+<CodeGroup>
+```go
+import (
+  "github.com/microsoft/go-mssqldb/azuread"
+  "gorm.io/driver/sqlserver"
+  "gorm.io/gorm"
+)
+
+func connectWithAzureAD() (*gorm.DB, error) {
+  dsn := "sqlserver://user@myserver.database.windows.net:1433?database=mydb"
+  dialector := &sqlserver.Dialector{
+    Config: &sqlserver.Config{
+      DSN: dsn,
+      DriverName: azuread.DriverName,
+    },
+  }
+  return gorm.Open(dialector, &gorm.Config{})
+}
+```
+```go
+// Standard SQL Server Auth
+dsn := "sqlserver://user:password@localhost:1433?database=mydb"
+dialector := sqlserver.Open(dsn)
+db, err := gorm.Open(dialector, &gorm.Config{})
+```
+</CodeGroup>
+
+---
+
+## 12. Troubleshooting
+
+### Connecting Issues
+
+- Verify that DSN is correctly formatted.
+- Use standard port 1433 or the one your SQL Server instance listens on.
+- For Azure AD, confirm `DriverName` is set to `azuread.DriverName` and that AAD permissions are properly assigned.
+
+### Authentication failures
+
+- Incorrect credentials or missing driver cause failures.
+- Check network/firewall rules allowing access.
+
+### SQL Syntax Errors
+
+- Ensure that the GORM version and Dialector are compatible.
+- Avoid unsupported SQL Server features not yet supported by the driver.
+
+### Identity Insert Issues
+
+- The dialector handles identity insert automatically; manual overrides can cause conflicts.
+
+---
+
+For detailed error translation, see the [Error Translation](../error-handling/error-translation) API reference.
+
+---
+
+---
