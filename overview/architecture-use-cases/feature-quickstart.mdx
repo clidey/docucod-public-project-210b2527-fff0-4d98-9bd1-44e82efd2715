@@ -1,0 +1,184 @@
+---
+title: "Getting Started: Feature Quickstart"
+description: "Outlines the fastest path to adoption: installation, quick import, setting up DSN, initializing the database connection, and enabling Azure AD authentication. Designed for those eager to see the driver in action with minimal barriers to entry."
+---
+
+# Getting Started: Feature Quickstart
+
+Welcome to the fastest path to adopting the GORM SQL Server Driver. This guide is designed for developers eager to experience the driver in action with minimal setup friction. It walks you through installation, quick DSN setup, initializing the database connection, and enabling Azure Active Directory (Azure AD) authentication step-by-step.
+
+---
+
+## Why This Page Matters
+
+Getting up and running quickly is critical when integrating new technology into your project. This page eliminates barriers by focusing on what you need to succeed immediately – without overwhelming detail.
+
+Whether you're prototyping, testing, or integrating in a fast-paced environment, these steps lay a clear foundation so you can start interacting with SQL Server through GORM within minutes.
+
+---
+
+## Quickstart Overview
+
+This page covers:
+
+- Installing the GORM SQL Server Driver
+- Creating and importing a simple DSN (Data Source Name) for SQL Server
+- Opening your initial database connection
+- Enabling Azure AD authentication for secure access
+
+If you want to jump straight into code, this setup will provide you the core leverage to do so quickly.
+
+---
+
+## Step 1: Installation
+
+Start by adding the official driver to your Go project. Use the following import and module installation steps:
+
+```go
+import (
+  "gorm.io/driver/sqlserver"
+  "gorm.io/gorm"
+)
+```
+
+Then, run:
+
+```bash
+go get gorm.io/driver/sqlserver
+go get gorm.io/gorm
+```
+
+This installs the driver plus the core GORM library.
+
+
+---
+
+## Step 2: Prepare Your DSN (Data Source Name)
+
+The DSN is the key string that tells the driver how to connect to your SQL Server. A typical DSN looks like this:
+
+```text
+sqlserver://username:password@host:port?database=db_name
+```
+
+Example:
+
+```text
+sqlserver://gorm:LoremIpsum86@localhost:9930?database=gorm
+```
+
+**Pro tip:** You can configure your DSN using environment variables for better security and flexibility. For example:
+
+```bash
+export GORM_DSN="sqlserver://gorm:LoremIpsum86@localhost:9930?database=gorm"
+```
+
+---
+
+## Step 3: Initialize the Database Connection
+
+Use the GORM `Open` function with the SQL Server driver to establish the connection:
+
+```go
+dsn := "sqlserver://gorm:LoremIpsum86@localhost:9930?database=gorm"
+db, err := gorm.Open(sqlserver.Open(dsn), &gorm.Config{})
+if err != nil {
+  panic("failed to connect database")
+}
+```
+
+This code snippet opens your connection and returns a `db` object to interact with SQL Server.
+
+**Expected outcome:** Your application has successfully connected to the SQL Server instance and is ready to run queries.
+
+---
+
+## Step 4: Enable Azure Active Directory (Azure AD) Authentication (Optional but Recommended)
+
+For enterprise-grade security, the GORM SQL Server Driver supports Azure AD authentication out of the box.
+
+### How to enable Azure AD authentication:
+
+1. Import the Azure AD driver alongside GORM:
+
+```go
+import (
+  "github.com/microsoft/go-mssqldb/azuread"
+  "gorm.io/driver/sqlserver"
+  "gorm.io/gorm"
+)
+```
+
+2. Create a dialector with the Azure AD driver name:
+
+```go
+dsn := "sqlserver://gorm:LoremIpsum86@localhost:9930?database=gorm"
+dialector := &sqlserver.Dialector{Config: &sqlserver.Config{DSN: dsn, DriverName: azuread.DriverName}}
+db, err := gorm.Open(dialector, &gorm.Config{})
+if err != nil {
+  panic("failed to connect to SQL Server with Azure AD authentication")
+}
+```
+
+This setup enables seamless, secure authentication with Azure AD tokens instead of traditional SQL authentication.
+
+---
+
+## Tips for Success
+
+- **Validate Your DSN:** Ensure your connection string is correct and your SQL Server instance is reachable.
+- **Check Ports and Firewalls:** Confirm that the host and port configurations are accessible.
+- **Use Environment Variables:** Avoid hardcoding DSNs and credentials to enhance security.
+- **Test the Connection Early:** Run a simple `db.Exec("SELECT 1")` to confirm connectivity before proceeding.
+
+<Note>
+When enabling Azure AD, double-check that your infrastructure supports AD authentication and the proper permissions are granted to the service principal or managed identity.
+</Note>
+
+---
+
+## Common Pitfalls to Avoid
+
+- Misspelled DSN parameters or missing query parameters for database name.
+- Forgetting to import the `github.com/microsoft/go-mssqldb` driver package.
+- Attempting Azure AD authentication without proper Azure configuration or token availability.
+
+<Tip>
+If you encounter connection errors, consult the [Troubleshooting Common Issues]( /getting-started/validation-and-troubleshooting/troubleshooting-common-issues ) page early.
+</Tip>
+
+---
+
+## What Happens Next?
+
+Once your connection is live, you can start performing migrations, writing queries, and leveraging the full GORM SQL Server Driver capabilities. Refer to the guides:
+
+- [Connecting to SQL Server]( /guides/getting-started/basic-connection )
+- [Connecting with Azure AD Authentication]( /guides/getting-started/azure-ad-auth )
+- [Managing Schema Migrations]( /guides/database-operations/schema-migrations )
+
+These pages build on the foundational setup presented here.
+
+---
+
+## Summary Flow Diagram
+
+```mermaid
+flowchart TD
+  A[Start: Installation] --> B[Create or Obtain DSN]
+  B --> C[Open Database Connection with gorm.Open]
+  C --> D{Enable Azure AD Authentication?}
+  D -->|Yes| E[Configure Azure AD Driver]
+  D -->|No| F[Use Default SQL Server Driver]
+  E --> G[Connect to SQL Server via Azure AD]
+  F --> G[Connect to SQL Server via SQL Auth]
+  G --> H[Connection Ready: Run Queries & Migrations]
+```
+
+Experience the speed and simplicity of getting started with the GORM SQL Server Driver by following these concise, user-centered steps.
+
+---
+
+For full product context and advanced features, revisit the [Architecture Overview]( /overview/architecture-use-cases/architecture-overview ) and [Core Features at a Glance]( /overview/introduction-core-concepts/core-features-overview ) pages.
+
+Happy coding!
