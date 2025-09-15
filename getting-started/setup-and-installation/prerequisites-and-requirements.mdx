@@ -1,0 +1,160 @@
+---
+title: "Prerequisites & System Requirements"
+description: "Understand the software, Go version, and SQL Server requirements before installing GORM's SQL Server Driver. This page ensures your environment is properly set up to avoid setup conflicts and maximize compatibility."
+---
+
+# Prerequisites & System Requirements
+
+Before installing and using the GORM SQL Server Driver, ensure that your development environment meets the necessary system, software, and network requirements to guarantee a smooth setup and optimal compatibility.
+
+---
+
+## 1. Go Programming Language Requirement
+
+- **Go Version**: The GORM SQL Server Driver requires Go 1.18 or later.
+- Ensure your Go environment is properly installed and set up with the official Go distribution.
+
+<Tip>
+If you have multiple Go versions installed, verify your version by running `go version` in your terminal or command prompt to avoid compatibility issues.
+</Tip>
+
+---
+
+## 2. Microsoft SQL Server Requirements
+
+- **SQL Server Version**: Compatible with Microsoft SQL Server versions 2008 and above.
+- Ensure that the SQL Server instance is accessible from your development environment.
+- Confirm that the SQL Server supports TCP/IP connections and that the user credentials have sufficient privileges for schema migrations and data operations.
+
+<Note>
+The driver supports advanced features such as schema migration, index management, and transactional operations in SQL Server, so database permissions must accommodate these.
+</Note>
+
+---
+
+## 3. Dependencies and Driver Requirements
+
+- **GORM Framework**: The driver is designed to work with GORM, a popular Go ORM library. You must have GORM installed.
+
+- **Microsoft Go MSSQL Driver**:
+  - The driver depends on the `github.com/microsoft/go-mssqldb` package to handle low-level database connectivity.
+  - It is imported and used internally but make sure to include it in your project's dependencies.
+
+- **Modules and Package Management**:
+  - Use Go modules (`go mod`) to manage dependencies.
+
+---
+
+## 4. Network and Connectivity Requirements
+
+- **Network Access**:
+  - Your development machine or deployment server must have network access to the SQL Server instance.
+  - Open required firewall ports typically used by SQL Server (default TCP port 1433 or your configured port).
+
+- **Authentication**:
+  - Supports SQL Server authentication with username and password.
+  - Supports Azure AD authentication (see separate guide at [Connecting with Azure AD Authentication](/guides/getting-started/azure-ad-auth)).
+
+---
+
+## 5. System Environment Considerations
+
+- **Operating System Compatibility**:
+  - The driver is compatible with all major OS platforms where Go and SQL Server drivers run, including Windows, Linux, and macOS.
+
+- **Resource Requirements**:
+  - Minimal CPU and memory requirements beyond those typical of running Go applications and SQL Server clients.
+  - Ensure sufficient resources to run your database client applications effectively.
+
+---
+
+## 6. Verifying Your Environment
+
+Follow these steps to confirm your environment meets prerequisites:
+
+<Steps>
+<Step title="Check Go Version">
+Run the command:
+
+```bash
+go version
+```
+
+Confirm the output shows Go 1.18 or greater.
+</Step>
+<Step title="Validate SQL Server Accessibility">
+Verify you can connect to SQL Server using command line tools or GUI clients (like SQL Server Management Studio).
+
+Attempt to connect using the same DSN details you plan to use with GORM.
+</Step>
+<Step title="Confirm Dependencies in Your Go Project">
+Ensure your `go.mod` includes:
+
+```go
+require (
+  gorm.io/gorm v1.x.x
+  gorm.io/driver/sqlserver v1.x.x
+  github.com/microsoft/go-mssqldb v1.x.x
+)
+```
+
+You can add dependencies using:
+
+```bash
+go get gorm.io/driver/sqlserver
+go get github.com/microsoft/go-mssqldb
+```
+</Step>
+</Steps>
+
+<Info>
+Having the correct Go version and dependencies installed ensures smooth compilation and runtime behavior with the SQL Server Driver.
+</Info>
+
+---
+
+## 7. Common Pitfalls to Avoid
+
+- Using a Go version below 1.18 will cause compile-time errors.
+- Missing or incorrect DSN configuration will prevent database connection.
+- Ensure SQL Server user credentials have necessary permissions to create and modify tables if you use migrations.
+- Firewalls blocking SQL Server ports will lead to connection timeouts.
+
+<Tip>
+Review and test connectivity to SQL Server before running your Go application to isolate network or credential issues early.
+</Tip>
+
+---
+
+## Resources & Next Steps
+
+- For installation instructions, proceed to [Installation Instructions](/getting-started/setup-and-installation/installation-instructions).
+- To configure your connection and run your first query, see [Configuration & First Connection](/getting-started/setup-and-installation/configuration-and-first-connection).
+- To explore Azure AD authentication setup, see [Connecting with Azure AD Authentication](/guides/getting-started/azure-ad-auth).
+
+---
+
+For a deeper understanding of the driver's capabilities and architecture, consult the Overview section:
+
+- [Architecture & Integration Overview](/overview/architecture-use-cases/architecture-overview)
+- [Core Features at a Glance](/overview/introduction-core-concepts/core-features-overview)
+
+Ensure your environment is ready with these prerequisites for a smooth journey into working with GORM's SQL Server Driver.
+
+---
+
+<CardGroup cols={3}>
+<Card title="Go Version Check">
+- Go 1.18+
+- Run `go version`
+</Card>
+<Card title="SQL Server Version">
+- SQL Server 2008+
+- Accessible via network
+</Card>
+<Card title="Dependencies">
+- GORM Framework
+- go-mssqldb driver
+- Managed via Go Modules
+</Card>
+</CardGroup>
